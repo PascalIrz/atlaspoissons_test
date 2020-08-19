@@ -1,0 +1,238 @@
+library(data.table)
+library(tidyverse)
+library(sf)
+library(MapColoring)
+library(mapview)
+
+rm(list = ls())
+
+
+
+##########################################################################
+# inventaires piscicoles
+# il faut homogénéiser les deux jeux de données pour réussir à les empiler
+
+#### les inventaires issus de Wama - non spatialisé
+path <- "//dr35stoc/partages_$/dr35_projets/PROJETS/ATLAS_POISSONS/Données_Wama/Export_poissons_07_2019.csv"
+fish_wama <- fread(path, encoding = "UTF-8") %>% 
+  mutate(date_peche = lubridate::dmy_hm(Date_peche),
+         date_peche = lubridate::date(date_peche),
+         organisme = "WAMA",
+         contexte = "WAMA",
+         code_station = as.character(Code_station)) %>% 
+  select(date_peche, organisme, contexte, localisation = LbSiteSurv, code_station,
+         code_espece = Code_Onema_espece, effectif = Effectif_ind_)
+
+
+#### les inventaires des SD / fédés - shapefile spatialisé
+# il faut créer un identifiant de station
+# + un fichier non spatial pour passer en format long et empiler avec les données Wama
+# comme il y avait pb d'encodage UTF-8 avec st_read(), utilisation de rgdal::readOGR() puis sf::st_as_sf()
+path <- "//dr35stoc.onema.fr/partages_$/dr35_projets/PROJETS/ATLAS_POISSONS/Donnees_peches_SD/compilation_validee_2015_2018"
+fish_sd_sp <- rgdal::readOGR(path, stringsAsFactors = FALSE) %>% 
+  st_as_sf()
+
+st_crs(fish_sd_sp) <- 2154
+
+# création d'un identifiant unique de station + du référentiel stations SD
+fish_sd_sp <- fish_sd_sp %>% 
+  mutate( X = sf::st_coordinates(fish_sd_sp)[,1],
+          Y = sf::st_coordinates(fish_sd_sp)[,2]) %>% 
+  mutate(code_station = paste(round(X), round(Y), sep = "_")) %>% 
+  select(-X, -Y)
+
+fish_sd_sp <- fish_sd_sp %>% 
+  sf::st_transform(crs = 4326)
+
+st_crs(fish_sd_sp)
+
+stations_sd <- fish_sd_sp %>% 
+  select(code_station, localisation = Bassin, geometry)
+
+# inventaires des SD
+fish_sd <- fish_sd_sp  %>% 
+  st_drop_geometry()
+
+
+fish_sd_long <- fish_sd %>% 
+  pivot_longer(TRF:CTI, names_to = "code_espece", values_to = "nombre") %>% 
+  mutate(date_peche = lubridate::ymd(Date)) %>% 
+  select(date_peche, organisme = Organisme, contexte = Ctxte_Pech, localisation = Bassin, code_station,
+         code_espece, effectif = nombre) %>% 
+  mutate(effectif = as.integer(effectif))
+
+# empilement des deux fichiers WAMA et SD
+fish <- bind_rows(fish_sd_long, fish_wama)
+
+# rm(fish_sd_long, fish_wama)
+
+# Référentiel stations WAMA
+
+path <- "//dr35stoc/partages_$/dr35_projets/PROJETS/ATLAS_POISSONS/Données_Wama/Export_poissons_07_2019.csv"
+stations_wama <- fread(path, encoding = "UTF-8") %>% 
+  mutate(Code_station = as.character(Code_station)) %>% 
+  select(code_station = Code_station, localisation = LbSiteSurv, CoordX_WGS84, CoordY_WGS84) %>% 
+  unique() %>% 
+  st_as_sf(coords = c("CoordX_WGS84", "CoordY_WGS84"), crs = 4326)
+
+
+stations <- rbind(stations_wama, stations_sd)
+
+# ggplot(stations)+geom_sf()
+
+rm(fish_sd_sp, fish_wama, path, stations_sd, stations_wama, fish_sd, fish_sd_long)
+
+# vérification que les codes stations sont exactement les mêmes dans stations et dans fish
+# normalement on a les mêmes stations dans les deux tables
+setdiff(unique(stations$code_station), unique(fish$code_station))
+intersect(unique(stations$code_station), unique(fish$code_station))
+
+
+
+########################################################################
+# données hydrographiques
+
+# les bassins versants
+# à partir de la couche de Josselin
+path <- '//dr35stoc/partages_$/dr35_projets/PROJETS/ATLAS_POISSONS/PROJET_SIG/layers/BASSINS_ATLAS_POISSONS_BZH_20170918.shp'
+
+# comme il y avait pb d'encodage UTF-8 avec st_read(), utilisation de rgdal::readOGR() puis st_as_sf()
+bassins <- rgdal::readOGR(path, stringsAsFactors = FALSE) %>% 
+  st_as_sf() %>% 
+  rename(code_bassin = ID)
+
+
+st_crs(bassins) <- 2154
+
+bassins <- bassins %>% 
+  sf::st_transform(crs = 4326) %>% 
+  select(code_bassin:BV, richesse_totale = X_TOT_ESP)
+
+liste_bassins_tot <- bassins %>% 
+  pull(code_bassin)
+
+# s'il y a des stations en dehors de la couche des bv, pb par la suite => besoin de les exclure
+perimeter <- st_union(bassins)
+
+# mapview::mapview(perimeter) + mapview::mapview(stations)
+
+selected_stations <- st_intersects(x = stations, y = perimeter, sparse = FALSE) %>% 
+  unlist()
+
+stations <- stations[selected_stations,]
+
+# mapview::mapview(perimeter) + mapview::mapview(stations)
+
+# intersection spatiale pour savoir à quel bassin appartient chaque station
+# rem : si l'on n'avait pas exclu la station extérieure au périmètre on aurait eu un nb de ligne différent 
+# entre les deux vecteurs ci-dessous
+station_to_catchment_table <- sf::st_intersects(x = stations, y = bassins) %>% 
+  unlist()
+
+passage <- bassins[station_to_catchment_table, c("code_bassin", "LIBELLE")] %>%
+  st_drop_geometry() %>%
+  cbind(station_to_catchment_table) %>%
+  as.data.frame() %>% 
+  rename(libelle_bassin = LIBELLE) %>% 
+  select(-station_to_catchment_table)
+
+stations <- stations %>% 
+  mutate(code_bassin = passage$code_bassin,
+         libelle_bassin = passage$libelle_bassin)
+
+
+
+
+
+# Comme c'est Ok on peut faire la jointure sans soucis ; comme c'est la geometry de x qui est conservée, c'esr right_join()
+
+fish_data <- right_join(x = stations, y = fish, by = c("code_station", "localisation"))
+
+# ggplot(fish_data %>% filter(code_espece == "TAC" & effectif > 0))+geom_sf()
+# mapview::mapview(fish_data %>% filter(code_espece == "TAC" & effectif > 0))
+
+# liste des bassins avec au moins une pêche
+liste_bassins_mini_une_peche <- stations %>% 
+  pull(code_bassin) %>% 
+  unique()
+
+# bassins sans pêches
+liste_bassins_sans_peches <- setdiff(liste_bassins_tot, liste_bassins_mini_une_peche)
+mapview::mapview(bassins %>% filter(code_bassin %in% liste_bassins_sans_peches))
+
+# stations totales
+liste_stations_tot <- stations %>% 
+  pull(code_station) %>% 
+  unique()
+
+# stations mini une pêche
+liste_stations_mini_une_peche <- fish_data %>% 
+  filter(code_station %in% liste_stations_tot) %>% # pour exclure les stations hors périmètre
+  group_by(code_station, date_peche) %>% 
+      tally() %>% 
+  ungroup() %>% 
+  pull(code_station) %>% 
+  unique()
+
+rm(fish, perimeter, selected_stations, path, station_to_catchment_table, passage)
+
+#### Référentiel des espèces piscicoles fourni par mail par Thibault
+
+fish_ref <- readxl::read_xls(path = "../raw_data/Codes espèces cemagref.xls")
+
+# vérification
+
+# mapview::mapview(bassins, legend = TRUE, layer.name = 'Bassin')
+
+
+# cartes interactives leaflet
+
+# pour vérification que chaque station ets dans le bon BV - utiliser le tooltip
+# mapview::mapview(bassins, zcol = "ID", layer.name = c("Bassins"), alpha.regions = 0.1) +
+#  mapview::mapview(stations, zcol = "code_bv", layer.name = c("Stations"))
+
+# Pour savoir combien de couleurs sont nécessaires au minimum pour éviter que deux BV adjacents soient de la même couleur
+# on utilise MapColoring::getNColors. Comme il ne fonctionne qu'avec les objets de classe SpatialPolygons* on fait
+# une conversion avec as()
+
+# n_colors <- getNColors(as(bassins, 'Spatial'))
+
+# Get Optimal contrast colors
+# cand.colors <- rainbow(20)
+# opt.colors <- getOptimalContrast(x = as(bassins, 'Spatial'), col = cand.colors)
+
+# Plot
+# utiliser https://r-spatial.github.io/mapview/articles/articles/mapview_04-popups.html
+
+# mapview(bassins, zcol = "LIBELLE", layer.name = c("Bassins"), alpha.regions = 0.3, legend = FALSE,
+#                  map.types = c("OpenStreetMap", "Esri.WorldImagery", "OpenTopoMap"), col.regions = opt.colors) +
+#   mapview(stations, layer.name = c("Stations"), zcol = c("localisation"), legend = FALSE,
+#                    popup = popupTable(stations, zcol = c("code_station", "localisation")))
+
+
+# rm(cand.colors, opt.colors, n_colors)
+
+fish_non_spatial <- fish_data %>% 
+  sf::st_drop_geometry()
+
+n_indiv_par_bassin <- fish_non_spatial %>% 
+  group_by(code_bassin) %>% 
+  summarise(n_tot_indiv_captures = sum(effectif, na.rm = T)) %>% 
+  ungroup()
+
+n_stations_par_bassin <- fish_non_spatial %>% 
+  group_by(code_bassin) %>% 
+  summarise(n_stations_bassin = n_distinct(code_station)) %>% 
+  ungroup()
+
+bassins_simp <- bassins %>% 
+  select(code_bassin, LIBELLE, BV, richesse_totale, geometry)
+
+n_peches_par_station <- fish_non_spatial %>% 
+  group_by(code_station) %>% 
+  summarise(n_peches = n_distinct(date_peche)) %>% 
+  ungroup()
+
+rm(bassins)
+
+save.image(file = "../processed_data/fish_and_geographical_data.RData")
