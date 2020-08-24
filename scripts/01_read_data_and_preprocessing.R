@@ -64,8 +64,8 @@ save(wama, file = 'processed_data/wama.RData')
 # save(sd_base, file = "raw_data/sd.RData")
 load(file = "raw_data/sd.RData")
 
-coords <- get_coords (sf_obj = sd_base,
-                      sf_obj_crs = 2154)
+coords <- get_coords(sf_obj = sd_base,
+                     sf_obj_crs = 2154)
 
 sd <- sd_base %>% 
   st_drop_geometry() %>% 
@@ -90,8 +90,8 @@ rm(sd_file, sd_path, sd_base)
 # save(fede_base, file = "raw_data/fede.RData")
 load(file = "raw_data/fede.RData")
    
-coords <- get_coords (sf_obj = fede_base,
-                      sf_obj_crs = 2154)
+coords <- get_coords(sf_obj = fede_base,
+                     sf_obj_crs = 2154)
   
 fede <- fede_base %>% 
   st_drop_geometry() %>% 
@@ -117,6 +117,7 @@ load ('raw_data/aspe.RData')
 # ATTENTION : comme il y a plusieurs mesures individuelles sur les individus d'un même lot, on ne peut pas simplement sommer
 # les effectifs par lot (sinon on multiplie )
 # suppression des espèces : mulet porc, plie et alose feinte
+
 # =====================================================================
 # Fonction de simplification du dataframe
 simplif_aspe_occur <- function(aspe_df) {
@@ -125,13 +126,13 @@ simplif_aspe_occur <- function(aspe_df) {
            lop_effectif) %>% 
     group_by(sta_code_sandre, pop_coordonnees_x, pop_coordonnees_y, proj_pop, protocole_peche, ope_date, esp_nom_latin,
              esp_code_sandre, lop_id, lop_effectif) %>% 
-    slice(1) %>% 
-    rename(effectif = lop_effectif,
+      slice(1) %>% 
+      rename(effectif = lop_effectif,
            code_station = sta_code_sandre,
            type_peche = protocole_peche) %>% 
     group_by(code_station, pop_coordonnees_x, pop_coordonnees_y, proj_pop, type_peche, ope_date,
              esp_nom_latin, esp_code_sandre) %>% 
-    summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
+      summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
     ungroup()
 }
 # =====================================================================
@@ -141,8 +142,11 @@ aspe_occurence <- aspe %>%
 
 # =====================================================================
 # Fonction du conversion de CRS pour un dataframe qui contient des colonnes de coordonnées
-transform_crs <- function(aspe_df, coords = c("pop_coordonnees_x", "pop_coordonnees_y"),
-                          init_crs, final_crs = 4326, coord_names = c("x_wgs84", "y_wgs84")) {
+transform_crs <- function(aspe_df,
+                          coords = c("pop_coordonnees_x", "pop_coordonnees_y"),
+                          init_crs,
+                          final_crs = 4326,
+                          coord_names = c("x_wgs84", "y_wgs84")) {
   
   prov <- aspe_df %>% 
     sf::st_as_sf(coords = coords, crs = init_crs) %>% 
@@ -156,6 +160,7 @@ transform_crs <- function(aspe_df, coords = c("pop_coordonnees_x", "pop_coordonn
   
 }
 # =====================================================================
+
 # sous-jeu de données en Lambert II - reprojection en WGS84
 aspe_l2 <- aspe_occurence %>% 
   filter(proj_pop == "Lambert II Etendu") %>% 
@@ -200,7 +205,7 @@ save(fish_aspe, file = "processed_data/fish_aspe.RData")
 # save(fish_aspe, stations_aspe, file = "../processed_data/aspe_bzh.RData")
 
 
-rm(aspe, aspe_l2, aspe_l93, aspe_occurence, coords, fish_aspe)
+rm(aspe, aspe_l2, aspe_l93, aspe_occurence, fish_aspe)
   
 
 #################### gestion des codes espèces manquants, recodages, filtres
@@ -221,6 +226,10 @@ fish_aspe <- fish_aspe %>%
   left_join(y = fish_ref, by = "esp_code_sandre") %>%
   st_drop_geometry()
 
+# =====================================================================
+# Fonction de recodage des codes espèces et d'exclusion de taxons comme les écrevisses
+# Par exemple les carpes cuir, miroir, etc. sont regroupées sous un unique code CCX. Idem pour les vandoises en VAX
+# Dans l'ouest Finistère, il n'y a que de l'épinoche => recodage de l'épinochette sur cette zone
 recode_and_filter_species <- function(df, sp_to_remove) {
   df %>% 
     filter(!code_espece %in% sp_to_remove) %>% 
@@ -235,12 +244,15 @@ recode_and_filter_species <- function(df, sp_to_remove) {
            code_espece = str_replace(code_espece, pattern = "VAR", replacement = "VAX"),
            code_espece = ifelse(code_espece == "EPT" & x_wgs84 < (-4.1), "EPI", code_espece))
   }
+# =====================================================================
+
+# Liste des codes espèces à supprimer
+especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
+                         "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC", "GRV",
+                         "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX")
 
 fish_aspe <- fish_aspe %>% 
-  recode_and_filter_species (sp_to_remove = c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
-                                              "APP", "APT", "OCL", "GOX",
-                                              "VAL", "POB", "CRE", "CRC", "GRV", "GRT", "GRI", "LOU",
-                                              "MUP", "PLI", "ALF", "BRX")) %>% 
+  recode_and_filter_species (sp_to_remove = especes_a_supprimer) %>% 
     group_by(x_wgs84, y_wgs84, type_peche, ope_date, code_espece, code_station) %>% 
         summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
     ungroup() %>% 
@@ -270,8 +282,10 @@ fish_aspe <- fish_aspe %>%
   filter(!is.na(code_espece))
 
 aspe <- rbind(fish_aspe, bredouilles) %>% 
-  filter(TRUE) %>% 
-  mutate(code_exutoire = NA, localisation = NA, organisme = "ASPE") %>% 
+#  filter(TRUE) %>% 
+  mutate(code_exutoire = NA,
+         localisation = NA,
+         organisme = "ASPE") %>% 
   select(code_exutoire, code_station, localisation, x_wgs84, y_wgs84, date_peche = ope_date, organisme,
          type_peche, code_espece, effectif) %>% 
   mutate_at(vars(code_station, localisation, date_peche), as.character) %>% 
@@ -284,35 +298,34 @@ rm(fish_aspe, bredouilles, fish_ref)
 ####################################################
 # ASPE pour Josselin
 # On pivote le tableau pour obtenir une colonne par espèce
-fish_aspe_bzh_wide <- aspe %>%
-  pivot_wider(id_cols = code_exutoire:type_peche, names_from = code_espece, values_from = effectif) %>% 
-  filter(TRUE)
-
-# On ordonne les colonnes espèces par ordre alphabétique, remplace les NA par des zéros
-fish_aspe_bzh_wide <- fish_aspe_bzh_wide %>%
-  select(sort(names(.))) %>% 
-  select(x_wgs84, y_wgs84, type_peche, date_peche, everything()) %>% 
-  mutate_at(vars(ABH:VAX), replace_na, 0L) %>% 
-  select(-`NA`)
-
-# passage du dataframe en classe sf pour pouvoir l'exporter en shp en Lambert 93
-fish_aspe_bzh_wide_geo <- fish_aspe_bzh_wide %>% 
-  st_as_sf(coords = c("x_wgs84", "y_wgs84"), crs = 4326) %>% 
-  st_transform(crs = 27572)
-
-st_crs(fish_aspe_bzh_wide_geo)
-  
-st_write(obj = fish_aspe_bzh_wide_geo,
-         dsn = 'processed_data/aspe_bretagne.shp',
-         delete_dsn = TRUE)
-
-ggplot(fish_aspe_bzh_wide_geo) + geom_sf()
-
-rm(fish_aspe_bzh_wide, fish_aspe_bzh_wide_geo, fish_aspe, bredouilles, fish_ref)
+# fish_aspe_bzh_wide <- aspe %>%
+#   pivot_wider(id_cols = code_exutoire:type_peche, names_from = code_espece, values_from = effectif) %>% 
+#   filter(TRUE)
+# 
+# # On ordonne les colonnes espèces par ordre alphabétique, remplace les NA par des zéros
+# fish_aspe_bzh_wide <- fish_aspe_bzh_wide %>%
+#   select(sort(names(.))) %>% 
+#   select(x_wgs84, y_wgs84, type_peche, date_peche, everything()) %>% 
+#   mutate_at(vars(ABH:VAX), replace_na, 0L) %>% 
+#   select(-`NA`)
+# 
+# # passage du dataframe en classe sf pour pouvoir l'exporter en shp en Lambert 93
+# fish_aspe_bzh_wide_geo <- fish_aspe_bzh_wide %>% 
+#   st_as_sf(coords = c("x_wgs84", "y_wgs84"), crs = 4326) %>% 
+#   st_transform(crs = 27572)
+# 
+# st_crs(fish_aspe_bzh_wide_geo)
+#   
+# st_write(obj = fish_aspe_bzh_wide_geo,
+#          dsn = 'processed_data/aspe_bretagne.shp',
+#          delete_dsn = TRUE)
+# 
+# ggplot(fish_aspe_bzh_wide_geo) + geom_sf()
+# 
+# rm(fish_aspe_bzh_wide, fish_aspe_bzh_wide_geo, fish_aspe, bredouilles, fish_ref)
 
 
 ########################### Données agence eau Loire Bretagne
-
 base_repo <- "raw_data"
 file <- "Export_wama_env_poiss_AELB_BZH_2016_2018.xls"
 path <- paste(base_repo, file, sep = "/")
@@ -352,35 +365,52 @@ rm(agence_base, coords, fish_agence, stations_agence, base_repo, file, path)
 
 ############ empilement des fichiers
 
-
 # poissons
-fish <- bind_rows(wama, sd, fede, aspe, agence) %>% 
+data <- bind_rows(wama, sd, fede, aspe, agence) %>% 
+  # mutate(date_peche = ifelse(str_length(date_peche) == 19, lubridate::ymd_hms(date_peche), date_peche)) %>% 
+  # mutate(date_peche = ifelse(str_length(date_peche) == 10, lubridate::ymd(date_peche), date_peche)) %>% 
   mutate_if(is.character, as.factor) %>% 
-  mutate(date_peche = lubridate::ymd(date_peche)) %>% 
-  filter(TRUE)
+  filter(TRUE) %>% 
+  st_as_sf(coords = c("x_wgs84", "y_wgs84"))
 
 rm(fish_wama, fish_sd, fish_fede)
 
 # stations (après vérification que les CRS sont identiques) ; suppression des stations hors périmètre
 
-class(fish)
+class(data)
 
+# Périmètre de l'étude : on exclut les points aberrants.
+# On définit comme périmètre les 4 départements + les parties de BV qui "dépassent" vers les régions adjacentes
+# Fond de carte téléchargé sur https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1
+region <- rgdal::readOGR('raw_data/fond_de_carte/departements-20140306-100m.shp') %>% 
+  st_as_sf() %>% 
+  filter(code_insee %in% c(22, 29, 35, 56)) %>% 
+  sf::st_union(departements)
 
-list(stations_wama, stations_fede, stations_sd) %>% map(st_crs)
+perimetre <- sf::st_union(bassins) %>% 
+  c(region) %>% 
+  sf::st_union()
   
-stations <- rbind(stations_wama, stations_sd, stations_fede, stations_aspe) %>% 
-  st_crop(xmin = -6, xmax = 0, ymin = 47, ymax = 49)
+mapview::mapview(perimetre)
 
-rm(stations_wama, stations_sd, stations_fede, stations_aspe)
-
-
-# ggplot(stations)+geom_sf()
+rm(region)
 
 
-# vérification que les codes stations sont exactement les mêmes dans stations et dans fish
-# normalement on a les mêmes stations dans les deux tables
-setdiff(unique(stations$code_station), unique(fish$code_station))
-intersect(unique(stations$code_station), unique(fish$code_station))
+# list(stations_wama, stations_fede, stations_sd) %>% map(st_crs)
+#   
+# stations <- rbind(stations_wama, stations_sd, stations_fede, stations_aspe) %>% 
+#   st_crop(xmin = -6, xmax = 0, ymin = 47, ymax = 49)
+# 
+# rm(stations_wama, stations_sd, stations_fede, stations_aspe)
+# 
+# 
+# # ggplot(stations)+geom_sf()
+# 
+# 
+# # vérification que les codes stations sont exactement les mêmes dans stations et dans fish
+# # normalement on a les mêmes stations dans les deux tables
+# setdiff(unique(stations$code_station), unique(fish$code_station))
+# intersect(unique(stations$code_station), unique(fish$code_station))
 
 
 
@@ -389,7 +419,8 @@ intersect(unique(stations$code_station), unique(fish$code_station))
 
 # les bassins versants
 # à partir de la couche de Josselin
-bv_file <- "BV_20200115.shp"
+base_repo <- 'raw_data/donnees_geographiques_reference'
+bv_file <- "BV_20200215_indicateurs.shp"
 bv_path <- paste(base_repo, bv_file, sep = "/")
 
 # comme il y avait pb d'encodage UTF-8 avec st_read(), utilisation de rgdal::readOGR() puis st_as_sf()
