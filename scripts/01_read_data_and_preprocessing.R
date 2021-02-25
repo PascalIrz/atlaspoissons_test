@@ -265,24 +265,25 @@ fish_aspe <- fish_aspe %>%
 # en considérant une pêche comme une combinaison (X, Y, date)
 # les pêches avec NA comme seul code espèce - on les mets au format de fish_aspe pour pouvoir ensuite les empiler
 
-bredouilles <- fish_aspe %>% 
-  filter(is.na(code_espece)) %>% 
-  select(x_wgs84, y_wgs84, ope_date, code_station) %>% 
-  left_join(x = fish_aspe, by = c("x_wgs84", "y_wgs84", "ope_date", "code_station")) %>% 
-  group_by(ope_date, type_peche, x_wgs84, y_wgs84, code_station) %>% 
-      tally() %>% 
-  ungroup() %>% 
-  filter(n == 1) %>% 
-  mutate(code_espece = as.character(NA), effectif = as.integer(NA)) %>% 
-  select(x_wgs84, y_wgs84, type_peche, ope_date, code_espece, code_station, effectif)
+# bredouilles <- fish_aspe %>% 
+#   filter(is.na(code_espece)) %>% 
+#   select(x_wgs84, y_wgs84, ope_date, code_station) %>% 
+#   left_join(x = fish_aspe, by = c("x_wgs84", "y_wgs84", "ope_date", "code_station")) %>% 
+#   group_by(ope_date, type_peche, x_wgs84, y_wgs84, code_station) %>% 
+#       tally() %>% 
+#   ungroup() %>% 
+#   filter(n == 1) %>% 
+#   mutate(code_espece = as.character(NA), effectif = as.integer(NA)) %>% 
+#   select(x_wgs84, y_wgs84, type_peche, ope_date, code_espece, code_station, effectif)
 
 # traitement des autres codes espèces NA : on supprime les lignes
 
-fish_aspe <- fish_aspe %>% 
-  filter(!is.na(code_espece))
+# fish_aspe <- fish_aspe %>% 
+#   filter(!is.na(code_espece))
 
-aspe <- rbind(fish_aspe, bredouilles) %>% 
+#  aspe <- rbind(fish_aspe, bredouilles) %>% 
 #  filter(TRUE) %>% 
+aspe <- fish_aspe %>% 
   mutate(code_exutoire = NA,
          localisation = NA,
          organisme = "ASPE") %>% 
@@ -385,7 +386,7 @@ class(data)
 region <- rgdal::readOGR('raw_data/fond_de_carte/departements-20140306-100m.shp') %>% 
   st_as_sf() %>% 
   filter(code_insee %in% c(22, 29, 35, 56)) %>% 
-  sf::st_union(departements)
+  sf::st_union()
 
 perimetre <- sf::st_union(bassins) %>% 
   c(region) %>% 
@@ -416,11 +417,12 @@ rm(region)
 
 ########################################################################
 # données hydrographiques
+# source "Z:\dr35_projets\PROJETS\ATLAS_POISSONS\ATLAS_SIG\atlas_piscicole_bretagne_20200220\layers"
 
 # les bassins versants
 # à partir de la couche de Josselin
-base_repo <- 'raw_data/donnees_geographiques_reference'
-bv_file <- "BV_20200215_indicateurs.shp"
+base_repo <- "Z:/dr35_projets/PROJETS/ATLAS_POISSONS/ATLAS_SIG/atlas_piscicole_bretagne_20200220/layers"
+bv_file <- "bv_20200132_indicateurs.shp"
 bv_path <- paste(base_repo, bv_file, sep = "/")
 
 # comme il y avait pb d'encodage UTF-8 avec st_read(), utilisation de rgdal::readOGR() puis st_as_sf()
