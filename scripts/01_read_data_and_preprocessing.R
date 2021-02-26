@@ -109,17 +109,17 @@ load(file = "raw_data/fede.RData")
 
 fede <- atlas::clean_fede(fede_base)
    
-coords <- get_coords(sf_obj = fede_base,
-                     crs_init = 2154)
-  
-fede <- fede_base %>% 
-  st_drop_geometry() %>% 
-  bind_cols(coords) %>% 
-  pivot_longer(cols = ABH:VAX, names_to = "code_espece", values_to = "effectif") %>% 
-  mutate(code_station = NA, date_peche = NA, localisation = NA, organisme = "Fédé 56") %>% 
-  select(code_exutoire = IDD, code_station, localisation, x_wgs84, y_wgs84, date_peche, organisme,
-         type_peche = Ctxte_Pech, code_espece, effectif) %>% 
-  mutate_at(vars(code_station, localisation, date_peche), as.character)
+# coords <- get_coords(sf_obj = fede_base,
+#                      crs_init = 2154)
+#   
+# fede <- fede_base %>% 
+#   st_drop_geometry() %>% 
+#   bind_cols(coords) %>% 
+#   pivot_longer(cols = ABH:VAX, names_to = "code_espece", values_to = "effectif") %>% 
+#   mutate(code_station = NA, date_peche = NA, localisation = NA, organisme = "Fédé 56") %>% 
+#   select(code_exutoire = IDD, code_station, localisation, x_wgs84, y_wgs84, date_peche, organisme,
+#          type_peche = Ctxte_Pech, code_espece, effectif) %>% 
+#   mutate_at(vars(code_station, localisation, date_peche), as.character)
 
 save(fede, file = 'processed_data/fede.RData')
 
@@ -139,45 +139,45 @@ load ('raw_data/aspe.RData')
 
 # =====================================================================
 # Fonction de simplification du dataframe
-simplif_aspe_occur <- function(aspe_df) {
-  aspe_df %>% 
-    select(sta_code_sandre, pop_code_sandre:proj_pop, protocole_peche, ope_date, esp_nom_latin, esp_code_sandre, lop_id,
-           lop_effectif) %>% 
-    group_by(sta_code_sandre, pop_coordonnees_x, pop_coordonnees_y, proj_pop, protocole_peche, ope_date, esp_nom_latin,
-             esp_code_sandre, lop_id, lop_effectif) %>% 
-      slice(1) %>% 
-      rename(effectif = lop_effectif,
-           code_station = sta_code_sandre,
-           type_peche = protocole_peche) %>% 
-    group_by(code_station, pop_coordonnees_x, pop_coordonnees_y, proj_pop, type_peche, ope_date,
-             esp_nom_latin, esp_code_sandre) %>% 
-      summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
-    ungroup()
-}
+# simplif_aspe_occur <- function(aspe_df) {
+#   aspe_df %>% 
+#     select(sta_code_sandre, pop_code_sandre:proj_pop, protocole_peche, ope_date, esp_nom_latin, esp_code_sandre, lop_id,
+#            lop_effectif) %>% 
+#     group_by(sta_code_sandre, pop_coordonnees_x, pop_coordonnees_y, proj_pop, protocole_peche, ope_date, esp_nom_latin,
+#              esp_code_sandre, lop_id, lop_effectif) %>% 
+#       slice(1) %>% 
+#       rename(effectif = lop_effectif,
+#            code_station = sta_code_sandre,
+#            type_peche = protocole_peche) %>% 
+#     group_by(code_station, pop_coordonnees_x, pop_coordonnees_y, proj_pop, type_peche, ope_date,
+#              esp_nom_latin, esp_code_sandre) %>% 
+#       summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
+#     ungroup()
+# }
 # =====================================================================
 
 aspe_occurence <- aspe %>%
-  simplif_aspe_occur()
+  atlas::clean_aspe()
 
 # =====================================================================
 # Fonction du conversion de CRS pour un dataframe qui contient des colonnes de coordonnées
-transform_crs <- function(aspe_df,
-                          coords = c("pop_coordonnees_x", "pop_coordonnees_y"),
-                          init_crs,
-                          final_crs = 4326,
-                          coord_names = c("x_wgs84", "y_wgs84")) {
-  
-  prov <- aspe_df %>% 
-    sf::st_as_sf(coords = coords, crs = init_crs) %>% 
-    st_transform(crs = final_crs)
-  
-  coords <- st_coordinates(prov) %>% 
-    as.data.frame() %>% 
-    magrittr::set_colnames(coord_names)
-  
-  bind_cols(prov, coords)
-  
-}
+# transform_crs <- function(aspe_df,
+#                           coords = c("pop_coordonnees_x", "pop_coordonnees_y"),
+#                           init_crs,
+#                           final_crs = 4326,
+#                           coord_names = c("x_wgs84", "y_wgs84")) {
+#   
+#   prov <- aspe_df %>% 
+#     sf::st_as_sf(coords = coords, crs = init_crs) %>% 
+#     st_transform(crs = final_crs)
+#   
+#   coords <- st_coordinates(prov) %>% 
+#     as.data.frame() %>% 
+#     magrittr::set_colnames(coord_names)
+#   
+#   bind_cols(prov, coords)
+#   
+# }
 # =====================================================================
 
 # sous-jeu de données en Lambert II - reprojection en WGS84
