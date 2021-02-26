@@ -8,6 +8,10 @@ library(sf)
 library(MapColoring)
 library(mapview)
 
+
+detach("package:atlas", unload = TRUE)
+library(atlas)
+
 rm(list = ls())
 
 
@@ -29,30 +33,38 @@ load(file = "raw_data/wama.RData")
 # sf_obj_crs: code EPSG du système de coordonnées de cet objet
 # transf_crs: code EPSG du système de coordonnées de sortie (par défaut 4326 pour le WGS84)
 # colnames: vecteur indiquant les noms des colonnes de la sortie (par défaut c("x_wgs84", "y_wgs84"))
-get_coords <- function(sf_obj, sf_obj_crs, transf_crs = 4326, colnames = c("x_wgs84", "y_wgs84")) {
-  sf_obj %>% 
-    `st_crs<-`(sf_obj_crs) %>% 
-    st_transform(crs = transf_crs) %>% 
-    st_coordinates() %>% 
-    as.data.frame() %>% 
-    magrittr::set_colnames(colnames)
-} 
+# get_coords <- function(sf_obj, sf_obj_crs, transf_crs = 4326, colnames = c("x_wgs84", "y_wgs84")) {
+#   sf_obj %>% 
+#     `st_crs<-`(sf_obj_crs) %>% 
+#     st_transform(crs = transf_crs) %>% 
+#     st_coordinates() %>% 
+#     as.data.frame() %>% 
+#     magrittr::set_colnames(colnames)
+# } 
 # =========================================================================
 
-coords <- get_coords (sf_obj = wama_base,
-                      sf_obj_crs = 2154)
-
 wama <- wama_base %>% 
-  bind_cols(coords) %>% 
-  st_drop_geometry() %>% 
-  pivot_longer(cols = ABH:VAX, names_to = "code_espece", values_to = "effectif") %>% 
-  mutate(code_station = NA, date_peche = NA, organisme = "WAMA", type_peche = "WAMA", localisation = NA) %>% 
-  select(code_exutoire = IDD,  code_station = CD_STAT, localisation, x_wgs84 = X, y_wgs84 = Y, date_peche,
-         organisme, type_peche, code_espece, effectif) %>% 
-  mutate_at(vars(code_station, localisation, date_peche), as.character)
+  atlas::clean_wama()
 
-
-rm(wama_file, wama_path, wama_base)
+# coords <- atlas::get_coords(sf_obj = wama_base,
+#                             crs_init = 2154)
+# 
+# wama <- wama_base %>% 
+#   bind_cols(coords) %>% # ajout des coordonnées en wgs84
+#   st_drop_geometry() %>% # suppression de la colonnes géométrie
+#   filter(!stringr::str_detect(CD_STAT, pattern = "Total")) %>% # suppression du total
+#   pivot_longer(cols = ABH:VAX, names_to = "code_espece", values_to = "effectif") %>% 
+#   mutate(date_peche = stringr::str_sub(CD_STAT, -4, -1),
+#          code_station = stringr::str_sub(CD_STAT, 1, -6),
+#          organisme = "WAMA",
+#          type_peche = "WAMA",
+#          localisation = NA) %>% 
+#   select(code_exutoire = IDD,  code_station, localisation, x_wgs84 = X, y_wgs84 = Y, date_peche,
+#          organisme, type_peche, code_espece, effectif) %>% 
+#   mutate_at(vars(code_station, localisation, date_peche), as.character)
+# 
+# 
+# rm(wama_file, wama_path, wama_base)
 
 save(wama, file = 'processed_data/wama.RData')
 
@@ -64,17 +76,22 @@ save(wama, file = 'processed_data/wama.RData')
 # save(sd_base, file = "raw_data/sd.RData")
 load(file = "raw_data/sd.RData")
 
-coords <- get_coords(sf_obj = sd_base,
-                     sf_obj_crs = 2154)
+sd <- atlas::clean_sd(sd_base)
 
-sd <- sd_base %>% 
-  st_drop_geometry() %>% 
-  bind_cols(coords) %>% 
-  pivot_longer(cols = ABH:VAX, names_to = "code_espece", values_to = "effectif") %>% 
-  mutate(code_station = NA, date_peche = NA, organisme = "SD OFB", type_peche = "Atlas", localisation = NA) %>% 
-  select(code_exutoire = IDD,  code_station, localisation, x_wgs84, y_wgs84, date_peche,
-         organisme, type_peche, code_espece, effectif) %>% 
-  mutate_at(vars(code_station, localisation, date_peche), as.character)
+# coords <- atlas::get_coords(sf_obj = sd_base,
+#                             crs_init = 2154)
+# sd <- sd_base %>% 
+#   st_drop_geometry() %>% 
+#   bind_cols(coords) %>% 
+#   pivot_longer(cols = ABH:VAX, names_to = "code_espece", values_to = "effectif") %>% 
+#   mutate(code_station = NA,
+#          date_peche = Date,
+#          organisme = "SD OFB",
+#          type_peche = "Atlas",
+#          localisation = NA) %>% 
+#   select(code_exutoire = IDD,  code_station, localisation, x_wgs84, y_wgs84, date_peche,
+#          organisme, type_peche, code_espece, effectif) %>% 
+#   mutate_at(vars(code_station, localisation, date_peche), as.character)
 
 save(sd, file = 'processed_data/sd.RData')
 
@@ -89,9 +106,11 @@ rm(sd_file, sd_path, sd_base)
 # fede_base <- st_read(dsn = fede_path)
 # save(fede_base, file = "raw_data/fede.RData")
 load(file = "raw_data/fede.RData")
+
+fede <- atlas::clean_fede(fede_base)
    
 coords <- get_coords(sf_obj = fede_base,
-                     sf_obj_crs = 2154)
+                     crs_init = 2154)
   
 fede <- fede_base %>% 
   st_drop_geometry() %>% 
