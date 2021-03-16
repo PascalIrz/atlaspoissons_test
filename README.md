@@ -6,4 +6,4 @@ Ce projet vise à produire un atlas des poissons d'eau douce de Bretagne à part
 - Pour les besoins spécifiques de l'atlas, typiquement dans des bassins côtiers non prospectés par les réseaux
 - Par les fédérations départementales de pêche
 
-Il s'appuis sur le package {atlas}.
+Il s'appuie sur le package {atlas}.
