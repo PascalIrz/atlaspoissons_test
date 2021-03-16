@@ -96,7 +96,7 @@ sd <- atlas::clean_sd(sd_base)
 save(sd, file = 'processed_data/sd.RData')
 
 
-rm(sd_file, sd_path, sd_base)
+rm(sd_base)
 
 ############## Données fédé 56
 
@@ -123,7 +123,7 @@ fede <- atlas::clean_fede(fede_base)
 
 save(fede, file = 'processed_data/fede.RData')
 
-rm(fede_file, fede_path, fede_base, coords, base_repo)
+rm(fede_base)
 
 #################################################################################
 ##### DONNEES ASPE
@@ -495,9 +495,10 @@ liste_stations_mini_une_peche <- fish %>%
   unique()
 
 ####################################################
-#### Référentiel des espèces piscicoles fourni par mail par Thibault
+#### Référentiel des espèces piscicoles
 
-fish_ref <- readxl::read_xls(path = "../raw_data/Codes espèces cemagref.xls")
+# fichier fourni par mail par Thibault
+fish_ref <- readxl::read_xls(path = "raw_data/Codes espèces cemagref.xls")
 
 # on le restreint aux espèces présentes sur le périmètre de l'étude
 prov <- fish %>%
@@ -510,6 +511,12 @@ fish_ref <- fish_ref %>%
   filter(espoi %in% prov) %>% 
   rename(nom_espece_FR = esnom, code_espece = espoi, nom_espece_LA = eslat) %>% 
   mutate_all(as.factor)
+
+# fichier transmis par Thierry Point pour codes Taxref
+corresp <- read.table(file = "raw_data/esp_aspe__cd_nom_2020.12.14.csv",
+                      sep = "",
+                      header = TRUE)
+
   
 
 # vérification
