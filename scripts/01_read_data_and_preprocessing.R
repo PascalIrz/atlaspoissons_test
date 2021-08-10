@@ -436,7 +436,6 @@ rm(region)
 
 ########################################################################
 # données hydrographiques
-# source "Z:\dr35_projets\PROJETS\ATLAS_POISSONS\ATLAS_SIG\atlas_piscicole_bretagne_20200220\layers"
 
 # les bassins versants
 # à partir de la couche de Josselin
