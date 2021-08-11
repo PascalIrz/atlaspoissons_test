@@ -5,8 +5,9 @@
 library(data.table)
 library(tidyverse)
 library(sf)
-library(MapColoring)
+# library(MapColoring)
 library(mapview)
+library(aspe)
 
 
 detach("package:atlas", unload = TRUE)
@@ -26,45 +27,8 @@ rm(list = ls())
 
 load(file = "raw_data/wama.RData")
 
-# =========================================================================
-# Fonction de récupération - reprojection des coordonnées
-# par défaut la sortie est en wgs84
-# sf_obj: objet de classe sf dont il s'agit de collecter les coordonnées
-# sf_obj_crs: code EPSG du système de coordonnées de cet objet
-# transf_crs: code EPSG du système de coordonnées de sortie (par défaut 4326 pour le WGS84)
-# colnames: vecteur indiquant les noms des colonnes de la sortie (par défaut c("x_wgs84", "y_wgs84"))
-# get_coords <- function(sf_obj, sf_obj_crs, transf_crs = 4326, colnames = c("x_wgs84", "y_wgs84")) {
-#   sf_obj %>% 
-#     `st_crs<-`(sf_obj_crs) %>% 
-#     st_transform(crs = transf_crs) %>% 
-#     st_coordinates() %>% 
-#     as.data.frame() %>% 
-#     magrittr::set_colnames(colnames)
-# } 
-# =========================================================================
-
 wama <- wama_base %>% 
   atlas::clean_wama()
-
-# coords <- atlas::get_coords(sf_obj = wama_base,
-#                             crs_init = 2154)
-# 
-# wama <- wama_base %>% 
-#   bind_cols(coords) %>% # ajout des coordonnées en wgs84
-#   st_drop_geometry() %>% # suppression de la colonnes géométrie
-#   filter(!stringr::str_detect(CD_STAT, pattern = "Total")) %>% # suppression du total
-#   pivot_longer(cols = ABH:VAX, names_to = "code_espece", values_to = "effectif") %>% 
-#   mutate(date_peche = stringr::str_sub(CD_STAT, -4, -1),
-#          code_station = stringr::str_sub(CD_STAT, 1, -6),
-#          organisme = "WAMA",
-#          type_peche = "WAMA",
-#          localisation = NA) %>% 
-#   select(code_exutoire = IDD,  code_station, localisation, x_wgs84 = X, y_wgs84 = Y, date_peche,
-#          organisme, type_peche, code_espece, effectif) %>% 
-#   mutate_at(vars(code_station, localisation, date_peche), as.character)
-# 
-# 
-# rm(wama_file, wama_path, wama_base)
 
 save(wama, file = 'processed_data/wama.RData')
 
@@ -74,29 +38,15 @@ save(wama, file = 'processed_data/wama.RData')
 # sd_path <- paste(base_repo, sd_file, sep = "/")
 # sd_base <- st_read(dsn = sd_path)
 # save(sd_base, file = "raw_data/sd.RData")
+
 load(file = "raw_data/sd.RData")
 
-sd <- atlas::clean_sd(sd_base)
-
-# coords <- atlas::get_coords(sf_obj = sd_base,
-#                             crs_init = 2154)
-# sd <- sd_base %>% 
-#   st_drop_geometry() %>% 
-#   bind_cols(coords) %>% 
-#   pivot_longer(cols = ABH:VAX, names_to = "code_espece", values_to = "effectif") %>% 
-#   mutate(code_station = NA,
-#          date_peche = Date,
-#          organisme = "SD OFB",
-#          type_peche = "Atlas",
-#          localisation = NA) %>% 
-#   select(code_exutoire = IDD,  code_station, localisation, x_wgs84, y_wgs84, date_peche,
-#          organisme, type_peche, code_espece, effectif) %>% 
-#   mutate_at(vars(code_station, localisation, date_peche), as.character)
+sd <- sd_base %>%
+  atlas::clean_sd()
 
 save(sd, file = 'processed_data/sd.RData')
 
-
-rm(sd_base)
+rm(sd_base, wama_base)
 
 ############## Données fédé 56
 
@@ -107,19 +57,8 @@ rm(sd_base)
 # save(fede_base, file = "raw_data/fede.RData")
 load(file = "raw_data/fede.RData")
 
-fede <- atlas::clean_fede(fede_base)
-   
-# coords <- get_coords(sf_obj = fede_base,
-#                      crs_init = 2154)
-#   
-# fede <- fede_base %>% 
-#   st_drop_geometry() %>% 
-#   bind_cols(coords) %>% 
-#   pivot_longer(cols = ABH:VAX, names_to = "code_espece", values_to = "effectif") %>% 
-#   mutate(code_station = NA, date_peche = NA, localisation = NA, organisme = "Fédé 56") %>% 
-#   select(code_exutoire = IDD, code_station, localisation, x_wgs84, y_wgs84, date_peche, organisme,
-#          type_peche = Ctxte_Pech, code_espece, effectif) %>% 
-#   mutate_at(vars(code_station, localisation, date_peche), as.character)
+fede <- fede_base %>% 
+  atlas::clean_fede()
 
 save(fede, file = 'processed_data/fede.RData')
 
@@ -128,7 +67,66 @@ rm(fede_base)
 #################################################################################
 ##### DONNEES ASPE
 
-load ('raw_data/aspe.RData')
+load(file = "../../../ASPE/package/aspe_test/processed_data/toutes_tables_aspe_sauf_mei.RData")
+
+passerelle <- mef_creer_passerelle() %>% 
+  mef_select_dept(dept = c(22, 29, 35, 56)) %>% 
+  atlas::clean_aspe()
+
+#   mef_ajouter_ope_date() %>%
+#   mef_ajouter_libelle() %>% 
+#   mef_ajouter_lots() %>% 
+#   mef_ajouter_esp_code_alternatif() %>%
+#   mef_ajouter_type_protocole() %>% 
+#   mef_ajouter_operateur() %>% 
+#   mutate(code_exutoire = NA)
+# 
+# mes_pops <- passerelle %>% 
+#   pull(pop_id) %>% 
+#   unique()
+# 
+# 
+# pops <- point_prelevement %>%
+#   filter(pop_id %in% mes_pops) %>%
+#   geo_ajouter_crs(var_id_crs = "pop_typ_id") %>%
+#   select(
+#     pop_id,
+#     pop_coordonnees_x,
+#     pop_coordonnees_y,
+#     typ_code_epsg
+#   )
+# 
+# coords <- geo_convertir_coords_df(df = pops,
+#                                   var_x = "pop_coordonnees_x",
+#                                   var_y = "pop_coordonnees_y",
+#                                   var_crs_initial = "typ_code_epsg",
+#                                   crs_sortie = 2154) %>%
+#   rename(x_l93 = X,
+#          y_l93 = Y)
+# 
+# aspe <- passerelle %>% 
+#   left_join(coords) %>% 
+#   select(code_exutoire,
+#          code_station = sta_id,
+#          localisation = pop_libelle,
+#          x_l93,
+#          y_l93,
+#          date_peche = ope_date,
+#          organisme = utilisateur,
+#          type_peche = pro_libelle,
+#          code_espece = esp_code_alternatif,
+#          effectif = lop_effectif)
+  
+
+
+
+
+
+
+
+
+
+# load ('raw_data/aspe.RData')
 
 # pour le géoréférencement, le sont les points de prélèvement (préfixe 'pop') qui sont systématiquement référencés
 # et non les stations ; par contre il y a un mélange Lambert II étendu / Lambert93.
@@ -137,27 +135,8 @@ load ('raw_data/aspe.RData')
 # les effectifs par lot (sinon on multiplie )
 # suppression des espèces : mulet porc, plie et alose feinte
 
-# =====================================================================
-# Fonction de simplification du dataframe
-# simplif_aspe_occur <- function(aspe_df) {
-#   aspe_df %>% 
-#     select(sta_code_sandre, pop_code_sandre:proj_pop, protocole_peche, ope_date, esp_nom_latin, esp_code_sandre, lop_id,
-#            lop_effectif) %>% 
-#     group_by(sta_code_sandre, pop_coordonnees_x, pop_coordonnees_y, proj_pop, protocole_peche, ope_date, esp_nom_latin,
-#              esp_code_sandre, lop_id, lop_effectif) %>% 
-#       slice(1) %>% 
-#       rename(effectif = lop_effectif,
-#            code_station = sta_code_sandre,
-#            type_peche = protocole_peche) %>% 
-#     group_by(code_station, pop_coordonnees_x, pop_coordonnees_y, proj_pop, type_peche, ope_date,
-#              esp_nom_latin, esp_code_sandre) %>% 
-#       summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
-#     ungroup()
-# }
-# =====================================================================
-
-aspe_occurence <- aspe %>%
-  atlas::clean_aspe()
+# aspe_occurence <- aspe %>%
+#   atlas::clean_aspe()
 
 # =====================================================================
 # Fonction du conversion de CRS pour un dataframe qui contient des colonnes de coordonnées
@@ -181,14 +160,14 @@ aspe_occurence <- aspe %>%
 # =====================================================================
 
 # sous-jeu de données en Lambert II - reprojection en WGS84
-aspe_l2 <- aspe_occurence %>% 
-  filter(proj_pop == "Lambert II Etendu") %>% 
-  transform_crs(init_crs = 27572, final_crs = 4326)
+# aspe_l2 <- aspe_occurence %>% 
+#   filter(proj_pop == "Lambert II Etendu") %>% 
+#   transform_crs(init_crs = 27572, final_crs = 4326)
 
 # sous-jeu de données en Lambert 93 - reprojection en WGS84
-aspe_l93 <- aspe_occurence %>% 
-  filter(proj_pop == "RGF93 / Lambert 93") %>% 
-  transform_crs(init_crs = 2154, final_crs = 4326)
+# aspe_l93 <- aspe_occurence %>% 
+#   filter(proj_pop == "RGF93 / Lambert 93") %>% 
+#   transform_crs(init_crs = 2154, final_crs = 4326)
   
   
   
@@ -205,10 +184,10 @@ aspe_l93 <- aspe_occurence %>%
 # on empile des Lambert 93 et Lambert II, et on ne conserve que la Bretagne
 # la fonction rbind fonctionne en géo mais pas bind_rows
 
-fish_aspe <- rbind(aspe_l93, aspe_l2) %>% 
-  mutate(esp_code_sandre = as.character(esp_code_sandre)) %>% 
-  filter(x_wgs84 < (-0.9), x_wgs84 > (-5.3), y_wgs84 < 49, y_wgs84 > 47) %>% 
-  select(-proj_pop)
+# fish_aspe <- rbind(aspe_l93, aspe_l2) %>% 
+#   mutate(esp_code_sandre = as.character(esp_code_sandre)) %>% 
+#   filter(x_wgs84 < (-0.9), x_wgs84 > (-5.3), y_wgs84 < 49, y_wgs84 > 47) %>% 
+#   select(-proj_pop)
 
 save(fish_aspe, file = "processed_data/fish_aspe.RData")
 
