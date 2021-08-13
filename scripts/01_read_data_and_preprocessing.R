@@ -111,7 +111,7 @@ agence <- readxl::read_xls(path,
 
 load(file = "../../../ASPE/package/aspe_test/processed_data/toutes_tables_aspe_sauf_mei.RData")
 
-# On complète de référentiel des CRS
+# completion de référentiel des CRS
 ref_type_projection <- ref_type_projection %>%
   mutate(typ_code_epsg = ifelse((is.na(typ_code_epsg) & typ_libelle_sandre == "Lambert II Etendu"),
                                 yes = 27572,
@@ -137,7 +137,7 @@ mes_pops <- mes_pops %>%
   filter(!is.na(code_exutoire)) %>% 
   pull(pop_id)
 
-# Exclusion des points qui ne sont pas dans nos bassins + nettoyage
+# exclusion des points qui ne sont pas dans nos bassins + nettoyage
 aspe <- mef_creer_passerelle() %>% 
   filter(pop_id %in% mes_pops) %>% 
   atlas::clean_aspe()
@@ -224,79 +224,68 @@ save(aspe, file = 'processed_data/aspe.RData')
 
 
 
-
+# ---------------------------------------------------------------------
 ############ empilement des fichiers + passage en sf
+
+gdata::keep(wama, sd, fede, aspe, agence,
+            bassins,
+            sure = T)
 
 data <- bind_rows(wama, sd, fede, aspe, agence) %>% 
   mutate(code_station = ifelse(is.na(code_station),
                                paste(round(x_wgs84, 6), round(y_wgs84, 6), sep = "_"),
                                code_station)) %>% 
   mutate_if(is.character, as.factor) %>%
-  filter(TRUE)
-
-# objet géo des stations plus rapide à créer à ce stade qu'une fois de data passé en géo
-mes_stations <- data %>%
-  select(code_station, x_wgs84, y_wgs84) %>% 
-  distinct() %>% 
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326)
-# passage de data en objet sf
-data <- data %>%
-  st_as_sf(coords = c("x_wgs84", "y_wgs84"),
-           crs = 4326)
-
-gdata::keep(data,
-            mes_stations,
-            bassins,
-            sure = T)
-
-# data %>% sample_n(1000) %>% mapview
-
-# stations <- rbind(stations_wama, stations_sd, stations_fede, stations_aspe) %>% 
-#   st_crop(xmin = -6, xmax = 0, ymin = 47, ymax = 49)
-# 
-# rm(stations_wama, stations_sd, stations_fede, stations_aspe)
-# 
-# 
-# # ggplot(stations)+geom_sf()
-# 
-# 
-# # vérification que les codes stations sont exactement les mêmes dans stations et dans fish
-# # normalement on a les mêmes stations dans les deux tables
-# setdiff(unique(stations$code_station), unique(fish$code_station))
-# intersect(unique(stations$code_station), unique(fish$code_station))
 
 # attribution sur l'ensemble du jdd des bassins
 data <- data %>%
   select(-code_exutoire) %>% 
   sf::st_join(bassins %>% 
                 select(code_exutoire, geometry)) %>%
-  filter(!is.na(code_exutoire))
+  filter(!is.na(code_exutoire)) # au cas où il resterait des stations hors des bassins
 
-# pour vérifier : ggplot(data=bassins) + geom_sf() + geom_sf(data = stations, col = "#2892c4")# liste des bassins avec au moins une pêche
- liste_bassins_mini_une_peche <- stations %>% 
+# objet géo des stations
+mes_stations <- data %>%
+  select(code_station, geometry) %>% 
+  group_by(code_station) %>% 
+  slice(1) %>% 
+  ungroup()
+
+gdata::keep(data,
+            mes_stations,
+            bassins,
+            sure = T)
+
+# liste des bassins avec au moins une pêche
+ liste_bassins_mini_une_peche <- data %>% 
   pull(code_exutoire) %>% 
   unique()
 
-# bassins sans pêches
-liste_bassins_sans_peches <- setdiff(liste_bassins_tot, liste_bassins_mini_une_peche)
-m <- mapview::mapview(bassins %>% filter(code_exutoire %in% liste_bassins_sans_peches))
+# bassins non prospectés
+liste_bassins_sans_peches <- bassins %>% 
+  pull(code_exutoire) %>% 
+  setdiff(liste_bassins_mini_une_peche)
 
-save(m, file = '../processed_data/carte_bv_non_prospectes.RData')
+carte_bv_non_prospectes <- bassins %>%
+  filter(code_exutoire %in% liste_bassins_sans_peches) %>%
+  mapview()
+
+save(carte_bv_non_prospectes,
+     file = 'processed_data/carte_bv_non_prospectes.RData')
 
 # stations totales
-liste_stations_tot <- stations %>% 
+liste_stations_tot <- mes_stations %>% 
   pull(code_station) %>% 
-  unique()
+  as.character
 
-# stations mini une pêche
-liste_stations_mini_une_peche <- fish %>% 
-  filter(code_station %in% liste_stations_tot) %>% # pour exclure les stations hors périmètre
-  group_by(code_station, date_peche) %>% 
-      tally() %>% 
-  ungroup() %>% 
-  pull(code_station) %>% 
-  unique()
+# nb années de pêche par station
+liste_stations_mini_une_peche <- data %>%
+  st_drop_geometry() %>% 
+  group_by(code_station) %>% 
+      summarise(n_annees = n_distinct(annee)) %>% 
+  ungroup()
 
 ####################################################
 #### Référentiel des espèces piscicoles
