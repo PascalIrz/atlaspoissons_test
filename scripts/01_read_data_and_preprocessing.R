@@ -2,21 +2,47 @@
 # inventaires piscicoles & données géo
 # il faut homogénéiser les jeux de données pour pouvoir les empiler
 
-library(data.table)
 library(tidyverse)
 library(sf)
-# library(MapColoring)
 library(mapview)
 library(aspe)
-
-
-detach("package:atlas", unload = TRUE)
 library(atlas)
 
 rm(list = ls())
 
+#-------------------------------------------------------------------
+# données hydrographiques
+#-------------------------------------------------------------------
 
-############## Données WAMA - NB pas de date de pêche
+# les bassins versants
+# à partir de la couche de Josselin. Si pas à la DR, monter le VPN pour accéder ; sinon 
+# base_repo <- "Z:/dr35_projets/PROJETS/ATLAS_POISSONS/ATLAS_SIG/atlas_piscicole_bretagne_20200220/layers"
+base_repo <- "raw_data/atlas_piscicole_bretagne_20200220/layers"
+bv_file <- "bv_20200132_indicateurs.shp"
+bv_path <- paste(base_repo, bv_file, sep = "/")
+
+# comme il y avait pb d'encodage UTF-8 avec st_read(), utilisation de rgdal::readOGR() puis st_as_sf()
+# c'est sans doute améliorable
+bassins <- rgdal::readOGR(bv_path,
+                          use_iconv = TRUE,
+                          encoding = "UTF-8")
+
+bassins@data <-  bassins@data %>%
+  dplyr::mutate_if(is.character, iconv, 'UTF-8')
+
+bassins <- bassins %>% 
+  st_as_sf() %>% 
+  `st_crs<-`(2154) %>%
+  st_transform(crs = 4326) %>%
+  rename(code_exutoire = IDD) %>%
+  filter(TRUE)
+
+save(bassins, file = "processed_data/bassins.RData")
+load("processed_data/bassins.RData")
+
+#-------------------------------------------------------------------
+# WAMA - NB pas de date de pêche
+#-------------------------------------------------------------------
 
 # base_repo <- "//dr35stoc/partages_$/dr35_projets/PROJETS/ATLAS_POISSONS/donnees_geographiques_reference"
 # base_repo <- "raw_data/donnees_geographiques_reference"
@@ -32,7 +58,9 @@ wama <- wama_base %>%
 
 save(wama, file = 'processed_data/wama.RData')
 
-############## Données SD
+#-------------------------------------------------------------------
+# SD
+#-------------------------------------------------------------------
 
 # sd_file <- "peche_georect_sd_2015_2019_20200215.shp"
 # sd_path <- paste(base_repo, sd_file, sep = "/")
@@ -48,8 +76,9 @@ save(sd, file = 'processed_data/sd.RData')
 
 rm(sd_base, wama_base)
 
-############## Données fédé 56
-
+#-------------------------------------------------------------------
+# fédé 56
+#-------------------------------------------------------------------
 
 # fede_file <- "peche_fede_56_20200215.shp"
 # fede_path <- paste(base_repo, fede_file, sep = "/")
@@ -64,197 +93,63 @@ save(fede, file = 'processed_data/fede.RData')
 
 rm(fede_base)
 
-#################################################################################
-##### DONNEES ASPE
+#-------------------------------------------------------------------
+# agence eau Loire Bretagne
+#-------------------------------------------------------------------
+
+base_repo <- "raw_data"
+file <- "Export_wama_env_poiss_AELB_BZH_2016_2018.xls"
+path <- paste(base_repo, file, sep = "/")
+
+agence <- readxl::read_xls(path,
+                           sheet = "TempTable") %>% 
+  clean_agence()
+
+#-------------------------------------------------------------------
+# ASPE
+#-------------------------------------------------------------------
 
 load(file = "../../../ASPE/package/aspe_test/processed_data/toutes_tables_aspe_sauf_mei.RData")
 
-passerelle <- mef_creer_passerelle() %>% 
-  mef_select_dept(dept = c(22, 29, 35, 56)) %>% 
+# On complète de référentiel des CRS
+ref_type_projection <- ref_type_projection %>%
+  mutate(typ_code_epsg = ifelse((is.na(typ_code_epsg) & typ_libelle_sandre == "Lambert II Etendu"),
+                                yes = 27572,
+                                no = typ_code_epsg))
+
+# ajout du code EPSG aux pop
+mes_pops <- point_prelevement %>%
+  left_join(y = ref_type_projection,
+            by = c("pop_typ_id" = "typ_id"))
+
+# homogénéisation des CRS et passage en sf
+mes_pops <- geo_convertir_coords_df(df = mes_pops,
+                                    var_x = "pop_coordonnees_x",
+                                    var_y = "pop_coordonnees_y",
+                                    var_crs_initial = "typ_code_epsg",
+                                    crs_sortie = 4326) %>%
+  sf::st_as_sf(coords = c("X", "Y"),
+               crs = 4326)
+
+# attribution des bassins aux points
+mes_pops <- mes_pops %>% 
+  sf::st_join(bassins) %>%
+  filter(!is.na(code_exutoire)) %>% 
+  pull(pop_id)
+
+# Exclusion des points qui ne sont pas dans nos bassins + nettoyage
+aspe <- mef_creer_passerelle() %>% 
+  filter(pop_id %in% mes_pops) %>% 
   atlas::clean_aspe()
 
-#   mef_ajouter_ope_date() %>%
-#   mef_ajouter_libelle() %>% 
-#   mef_ajouter_lots() %>% 
-#   mef_ajouter_esp_code_alternatif() %>%
-#   mef_ajouter_type_protocole() %>% 
-#   mef_ajouter_operateur() %>% 
-#   mutate(code_exutoire = NA)
-# 
-# mes_pops <- passerelle %>% 
-#   pull(pop_id) %>% 
-#   unique()
-# 
-# 
-# pops <- point_prelevement %>%
-#   filter(pop_id %in% mes_pops) %>%
-#   geo_ajouter_crs(var_id_crs = "pop_typ_id") %>%
-#   select(
-#     pop_id,
-#     pop_coordonnees_x,
-#     pop_coordonnees_y,
-#     typ_code_epsg
-#   )
-# 
-# coords <- geo_convertir_coords_df(df = pops,
-#                                   var_x = "pop_coordonnees_x",
-#                                   var_y = "pop_coordonnees_y",
-#                                   var_crs_initial = "typ_code_epsg",
-#                                   crs_sortie = 2154) %>%
-#   rename(x_l93 = X,
-#          y_l93 = Y)
-# 
-# aspe <- passerelle %>% 
-#   left_join(coords) %>% 
-#   select(code_exutoire,
-#          code_station = sta_id,
-#          localisation = pop_libelle,
-#          x_l93,
-#          y_l93,
-#          date_peche = ope_date,
-#          organisme = utilisateur,
-#          type_peche = pro_libelle,
-#          code_espece = esp_code_alternatif,
-#          effectif = lop_effectif)
-  
-
-
-
-
-
-
-
-
-
-# load ('raw_data/aspe.RData')
-
-# pour le géoréférencement, le sont les points de prélèvement (préfixe 'pop') qui sont systématiquement référencés
-# et non les stations ; par contre il y a un mélange Lambert II étendu / Lambert93.
-# les nb d'individus sont la variable lop_effectif
-# ATTENTION : comme il y a plusieurs mesures individuelles sur les individus d'un même lot, on ne peut pas simplement sommer
-# les effectifs par lot (sinon on multiplie )
-# suppression des espèces : mulet porc, plie et alose feinte
-
-# aspe_occurence <- aspe %>%
-#   atlas::clean_aspe()
-
-# =====================================================================
-# Fonction du conversion de CRS pour un dataframe qui contient des colonnes de coordonnées
-# transform_crs <- function(aspe_df,
-#                           coords = c("pop_coordonnees_x", "pop_coordonnees_y"),
-#                           init_crs,
-#                           final_crs = 4326,
-#                           coord_names = c("x_wgs84", "y_wgs84")) {
-#   
-#   prov <- aspe_df %>% 
-#     sf::st_as_sf(coords = coords, crs = init_crs) %>% 
-#     st_transform(crs = final_crs)
-#   
-#   coords <- st_coordinates(prov) %>% 
-#     as.data.frame() %>% 
-#     magrittr::set_colnames(coord_names)
-#   
-#   bind_cols(prov, coords)
-#   
-# }
-# =====================================================================
-
-# sous-jeu de données en Lambert II - reprojection en WGS84
-# aspe_l2 <- aspe_occurence %>% 
-#   filter(proj_pop == "Lambert II Etendu") %>% 
-#   transform_crs(init_crs = 27572, final_crs = 4326)
-
-# sous-jeu de données en Lambert 93 - reprojection en WGS84
-# aspe_l93 <- aspe_occurence %>% 
-#   filter(proj_pop == "RGF93 / Lambert 93") %>% 
-#   transform_crs(init_crs = 2154, final_crs = 4326)
-  
-  
-  
-#   sf::st_as_sf(coords = c("pop_coordonnees_x", "pop_coordonnees_y"), crs = 2154) %>% 
-#   st_transform(crs = 4326)
-# 
-# coords <- st_coordinates(aspe_l93) %>% 
-#   as.data.frame() %>% 
-#   magrittr::set_colnames(c("x_wgs84", "y_wgs84"))
-# 
-# aspe_l93 <- bind_cols(aspe_l93, coords)
-
-
-# on empile des Lambert 93 et Lambert II, et on ne conserve que la Bretagne
-# la fonction rbind fonctionne en géo mais pas bind_rows
-
-# fish_aspe <- rbind(aspe_l93, aspe_l2) %>% 
-#   mutate(esp_code_sandre = as.character(esp_code_sandre)) %>% 
-#   filter(x_wgs84 < (-0.9), x_wgs84 > (-5.3), y_wgs84 < 49, y_wgs84 > 47) %>% 
-#   select(-proj_pop)
-
-save(fish_aspe, file = "processed_data/fish_aspe.RData")
-
-# stations ASPE. Pour dédoublonner, pas trouvé mieux que de convertir sf -> df -> sf
-# stations_aspe <- fish_aspe %>% 
-#  select(code_station, x_wgs84, y_wgs84) %>% 
-#  st_drop_geometry() %>% 
-#  distinct() %>% 
-#  st_as_sf(coords = c("x_wgs84", "y_wgs84"), crs = 4326) %>% 
-#  mutate(code_exutoire = NA) %>% 
-#  select(code_station, code_exutoire)
-
-# save(fish_aspe, stations_aspe, file = "../processed_data/aspe_bzh.RData")
-
-
-rm(aspe, aspe_l2, aspe_l93, aspe_occurence, fish_aspe)
-  
-
-#################### gestion des codes espèces manquants, recodages, filtres
-
-# comme les codes espèces à trois lettres ne sont pas indiqués, besoin de les récupérer depuis le référentiel
-# recodage des carpes, carassins, vandoises etc + de l'épinochette dans l'extrême ouest
-# suppression des codes espèces d'écrevisses, crabes, grenouilles, du loup, plie, alose feinte, mulet porc ...
-# suppression des brèmes indéterminées BRX
-
-
-load(file = "processed_data/fish_aspe.RData")
-
-fish_ref <- readxl::read_xlsx(path = "raw_data/ASPE_table_ref_taxon.xlsx") %>% 
-  select(code_espece = `Code alternatif`, esp_code_sandre = `Code sandre`) %>% 
-  mutate(esp_code_sandre = as.character(esp_code_sandre))
-
-fish_aspe <- fish_aspe %>% 
-  left_join(y = fish_ref, by = "esp_code_sandre") %>%
-  st_drop_geometry()
-
-# =====================================================================
-# Fonction de recodage des codes espèces et d'exclusion de taxons comme les écrevisses
-# Par exemple les carpes cuir, miroir, etc. sont regroupées sous un unique code CCX. Idem pour les vandoises en VAX
-# Dans l'ouest Finistère, il n'y a que de l'épinoche => recodage de l'épinochette sur cette zone
-recode_and_filter_species <- function(df, sp_to_remove) {
-  df %>% 
-    filter(!code_espece %in% sp_to_remove) %>% 
-    mutate(code_espece = str_replace(code_espece, pattern = "CCU", replacement = "CCX"),
-           code_espece = str_replace(code_espece, pattern = "CMI", replacement = "CCX"),
-           code_espece = str_replace(code_espece, pattern = "CCO", replacement = "CCX"),
-           code_espece = str_replace(code_espece, pattern = "CAG", replacement = "CAX"),
-           code_espece = str_replace(code_espece, pattern = "CAD", replacement = "CAX"),
-           code_espece = str_replace(code_espece, pattern = "CAA", replacement = "CAX"),
-           code_espece = str_replace(code_espece, pattern = "CAS", replacement = "CAX"),
-           code_espece = str_replace(code_espece, pattern = "VAN", replacement = "VAX"),
-           code_espece = str_replace(code_espece, pattern = "VAR", replacement = "VAX"),
-           code_espece = ifelse(code_espece == "EPT" & x_wgs84 < (-4.1), "EPI", code_espece))
-  }
-# =====================================================================
 
 # Liste des codes espèces à supprimer
 especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
                          "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC", "GRV",
                          "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX")
 
-fish_aspe <- fish_aspe %>% 
-  recode_and_filter_species (sp_to_remove = especes_a_supprimer) %>% 
-    group_by(x_wgs84, y_wgs84, type_peche, ope_date, code_espece, code_station) %>% 
-        summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
-    ungroup() %>% 
-    filter(TRUE)
+aspe <- aspe %>% 
+  recode_and_filter_species (sp_to_remove = especes_a_supprimer)
 
 # Repérage des bredouilles et interprétation de code_espece NA
 # le pb est qu'il ne s'agit pas nécessairement de bredouilles car il peut y avoir dans une même pêche des codes espèce
@@ -281,18 +176,21 @@ fish_aspe <- fish_aspe %>%
 
 #  aspe <- rbind(fish_aspe, bredouilles) %>% 
 #  filter(TRUE) %>% 
-aspe <- fish_aspe %>% 
-  mutate(code_exutoire = NA,
-         localisation = NA,
-         organisme = "ASPE") %>% 
-  select(code_exutoire, code_station, localisation, x_wgs84, y_wgs84, date_peche = ope_date, organisme,
-         type_peche, code_espece, effectif) %>% 
-  mutate_at(vars(code_station, localisation, date_peche), as.character) %>% 
-  filter(TRUE)
+# aspe <- fish_aspe %>% 
+#   mutate(code_exutoire = NA,
+#          localisation = NA,
+#          organisme = "ASPE") %>% 
+#   select(code_exutoire, code_station, localisation, x_wgs84, y_wgs84, date_peche = ope_date, organisme,
+#          type_peche, code_espece, effectif) %>% 
+#   mutate_at(vars(code_station, localisation, date_peche), as.character) %>% 
+#   filter(TRUE)
 
 save(aspe, file = 'processed_data/aspe.RData')
 
-rm(fish_aspe, bredouilles, fish_ref)
+# rm(fish_aspe, bredouilles, fish_ref)
+# 
+# aspe <- aspe %>% 
+#   mutate_at(vars(code_station, localisation, date_peche), as.character)
 
 ####################################################
 # ASPE pour Josselin
@@ -324,79 +222,36 @@ rm(fish_aspe, bredouilles, fish_ref)
 # rm(fish_aspe_bzh_wide, fish_aspe_bzh_wide_geo, fish_aspe, bredouilles, fish_ref)
 
 
-########################### Données agence eau Loire Bretagne
-base_repo <- "raw_data"
-file <- "Export_wama_env_poiss_AELB_BZH_2016_2018.xls"
-path <- paste(base_repo, file, sep = "/")
-agence_base <- readxl::read_xls(path, sheet = "TempTable") 
-
-fish_agence <- agence_base %>% 
-  mutate(code_exutoire = NA,
-         organisme = "EALB") %>% 
-  select(code_exutoire, code_station = CdStationMesureEauxSurface, localisation = NomEntiteHydrographique,
-         date_peche = Op_Dtd, organisme, type_peche = L1_Li_Nom, ABH:VAR) %>% 
-  mutate(date_peche = as.character(date_peche)) %>%
-  mutate_at(vars(ABH:VAR), replace_na, 0L) %>% 
-  pivot_longer(cols = ABH:VAR, names_to = "code_espece", values_to = "effectif")
-
-stations_agence <- agence_base %>% 
-  select(code_station = CdStationMesureEauxSurface, x_l93 = CoordXPointEauxSurf,
-         y_l93 = CoordYPointEauxSurf) %>%
-  group_by(code_station) %>% 
-      summarise(x_l93 = mean(x_l93, na.rm = TRUE), y_l93 = mean(y_l93, na.rm = TRUE)) %>% 
-  ungroup() %>% 
-  sf::st_as_sf(coords = c("x_l93", "y_l93"), crs = 2154) %>% 
-  st_transform(crs = 4326) 
-
-coords <- stations_agence %>% 
-  st_coordinates() %>% 
-  as.data.frame() %>% 
-  magrittr::set_colnames(c("x_wgs84", "y_wgs84"))
-
-stations_agence <- cbind(stations_agence, coords) %>% 
-  st_drop_geometry()
-
-agence <- left_join(x = fish_agence, y = stations_agence) %>% 
-  select(names(sd))
-
-rm(agence_base, coords, fish_agence, stations_agence, base_repo, file, path)
 
 
-############ empilement des fichiers
 
-# poissons
+############ empilement des fichiers + passage en sf
+
 data <- bind_rows(wama, sd, fede, aspe, agence) %>% 
-  # mutate(date_peche = ifelse(str_length(date_peche) == 19, lubridate::ymd_hms(date_peche), date_peche)) %>% 
-  # mutate(date_peche = ifelse(str_length(date_peche) == 10, lubridate::ymd(date_peche), date_peche)) %>% 
-  mutate_if(is.character, as.factor) %>% 
-  filter(TRUE) %>% 
-  st_as_sf(coords = c("x_wgs84", "y_wgs84"))
+  mutate(code_station = ifelse(is.na(code_station),
+                               paste(round(x_wgs84, 6), round(y_wgs84, 6), sep = "_"),
+                               code_station)) %>% 
+  mutate_if(is.character, as.factor) %>%
+  filter(TRUE)
 
-rm(fish_wama, fish_sd, fish_fede)
+# objet géo des stations plus rapide à créer à ce stade qu'une fois de data passé en géo
+mes_stations <- data %>%
+  select(code_station, x_wgs84, y_wgs84) %>% 
+  distinct() %>% 
+  st_as_sf(coords = c("x_wgs84", "y_wgs84"),
+           crs = 4326)
+# passage de data en objet sf
+data <- data %>%
+  st_as_sf(coords = c("x_wgs84", "y_wgs84"),
+           crs = 4326)
 
-# stations (après vérification que les CRS sont identiques) ; suppression des stations hors périmètre
+gdata::keep(data,
+            mes_stations,
+            bassins,
+            sure = T)
 
-class(data)
+# data %>% sample_n(1000) %>% mapview
 
-# Périmètre de l'étude : on exclut les points aberrants.
-# On définit comme périmètre les 4 départements + les parties de BV qui "dépassent" vers les régions adjacentes
-# Fond de carte téléchargé sur https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1
-region <- rgdal::readOGR('raw_data/fond_de_carte/departements-20140306-100m.shp') %>% 
-  st_as_sf() %>% 
-  filter(code_insee %in% c(22, 29, 35, 56)) %>% 
-  sf::st_union()
-
-perimetre <- sf::st_union(bassins) %>% 
-  c(region) %>% 
-  sf::st_union()
-  
-mapview::mapview(perimetre)
-
-rm(region)
-
-
-# list(stations_wama, stations_fede, stations_sd) %>% map(st_crs)
-#   
 # stations <- rbind(stations_wama, stations_sd, stations_fede, stations_aspe) %>% 
 #   st_crop(xmin = -6, xmax = 0, ymin = 47, ymax = 49)
 # 
@@ -411,43 +266,14 @@ rm(region)
 # setdiff(unique(stations$code_station), unique(fish$code_station))
 # intersect(unique(stations$code_station), unique(fish$code_station))
 
+# attribution sur l'ensemble du jdd des bassins
+data <- data %>%
+  select(-code_exutoire) %>% 
+  sf::st_join(bassins %>% 
+                select(code_exutoire, geometry)) %>%
+  filter(!is.na(code_exutoire))
 
-
-########################################################################
-# données hydrographiques
-
-# les bassins versants
-# à partir de la couche de Josselin
-base_repo <- "Z:/dr35_projets/PROJETS/ATLAS_POISSONS/ATLAS_SIG/atlas_piscicole_bretagne_20200220/layers"
-bv_file <- "bv_20200132_indicateurs.shp"
-bv_path <- paste(base_repo, bv_file, sep = "/")
-
-# comme il y avait pb d'encodage UTF-8 avec st_read(), utilisation de rgdal::readOGR() puis st_as_sf()
-
-bassins <- st_read(bv_path) %>% 
-  `st_crs<-`(2154) %>% 
-  st_transform(crs = 4326) %>% 
-  rename(code_exutoire = IDD) %>% 
-  filter(TRUE)
-
-# ggplot(data=bassins) + geom_sf() + geom_sf(data = stations)
-
-liste_bassins_tot <- bassins %>% 
-  pull(code_exutoire)
-
-# s'il y a des stations en dehors de la couche des bv, pb par la suite => besoin de les exclure
-perimeter <- st_union(bassins %>% lwgeom::st_make_valid())
-
-selected_stations <- st_intersects(x = stations, y = perimeter, sparse = FALSE) %>% 
-  unlist()
-
-stations <- stations[selected_stations,]
-
-rm(perimeter, bv_file, bv_path, selected_stations)
-
-# pour vérifier : ggplot(data=bassins) + geom_sf() + geom_sf(data = stations)
-
-# liste des bassins avec au moins une pêche
+# pour vérifier : ggplot(data=bassins) + geom_sf() + geom_sf(data = stations, col = "#2892c4")# liste des bassins avec au moins une pêche
  liste_bassins_mini_une_peche <- stations %>% 
   pull(code_exutoire) %>% 
   unique()
@@ -475,25 +301,27 @@ liste_stations_mini_une_peche <- fish %>%
 ####################################################
 #### Référentiel des espèces piscicoles
 
+data("passerelle_taxo")
+
 # fichier fourni par mail par Thibault
-fish_ref <- readxl::read_xls(path = "raw_data/Codes espèces cemagref.xls")
+# fish_ref <- readxl::read_xls(path = "raw_data/Codes espèces cemagref.xls")
 
 # on le restreint aux espèces présentes sur le périmètre de l'étude
-prov <- fish %>%
-  filter(effectif > 0) %>%
-  pull(code_espece) %>%
-  unique() %>%
-  droplevels()
-
-fish_ref <- fish_ref %>% 
-  filter(espoi %in% prov) %>% 
-  rename(nom_espece_FR = esnom, code_espece = espoi, nom_espece_LA = eslat) %>% 
-  mutate_all(as.factor)
+# prov <- fish %>%
+#   filter(effectif > 0) %>%
+#   pull(code_espece) %>%
+#   unique() %>%
+#   droplevels()
+# 
+# fish_ref <- fish_ref %>% 
+#   filter(espoi %in% prov) %>% 
+#   rename(nom_espece_FR = esnom, code_espece = espoi, nom_espece_LA = eslat) %>% 
+#   mutate_all(as.factor)
 
 # fichier transmis par Thierry Point pour codes Taxref
-corresp <- read.table(file = "raw_data/esp_aspe__cd_nom_2020.12.14.csv",
-                      sep = "",
-                      header = TRUE)
+# corresp <- read.table(file = "raw_data/esp_aspe__cd_nom_2020.12.14.csv",
+#                       sep = "",
+#                       header = TRUE)
 
   
 
