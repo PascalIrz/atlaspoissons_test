@@ -237,7 +237,8 @@ data <- bind_rows(wama, sd, fede, aspe, agence) %>%
                                code_station)) %>% 
   mutate_if(is.character, as.factor) %>%
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
-           crs = 4326)
+           crs = 4326) %>% 
+  filter(annee > 2010 | is.na(annee)) # suppression des données anciennes de aspe / wama
 
 # attribution sur l'ensemble du jdd des bassins
 data <- data %>%
@@ -349,12 +350,13 @@ data("passerelle_taxo")
 #fish_non_spatial <- fish %>% 
 #  filter(TRUE)
 
-n_indiv_par_bassin <- fish %>% 
-  group_by(code_exutoire) %>% 
-      summarise(n_tot_indiv_captures = sum(effectif, na.rm = T)) %>% 
-  ungroup()
+# n_indiv_par_bassin <- data %>% 
+#   group_by(code_exutoire) %>% 
+#       summarise(n_tot_indiv_captures = sum(effectif, na.rm = T)) %>% 
+#   ungroup()
 
-n_stations_par_bassin <- fish %>% 
+n_stations_par_bassin <- data %>% 
+  st_drop_geometry() %>% 
   group_by(code_exutoire) %>% 
       summarise(n_stations_bassin = n_distinct(code_station)) %>% 
   ungroup()
@@ -362,14 +364,14 @@ n_stations_par_bassin <- fish %>%
 bassins_simp <- bassins %>% 
   select(code_exutoire, toponyme, geometry)
 
-n_peches_par_station <- fish %>% 
+n_peches_par_station <- data %>% 
+  st_drop_geometry() %>% 
   group_by(code_station) %>% 
-  summarise(n_peches = n_distinct(date_peche)) %>% 
+    summarise(n_peches = n_distinct(date_peche)) %>% 
   ungroup()
 
-rm(bassins, prov, base_repo, stations_fede, stations_sd, stations_wama)
 
-save.image(file = "../processed_data/fish_and_geographical_data.RData")
-getwd()
+
+save.image(file = "processed_data/fish_and_geographical_data.RData")
 
 
