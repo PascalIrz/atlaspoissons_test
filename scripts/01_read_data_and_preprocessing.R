@@ -62,7 +62,7 @@ save(wama, file = 'processed_data/wama.RData')
 # SD
 #-------------------------------------------------------------------
 
-# sd_file <- "peche_georect_sd_2015_2019_20200215.shp"
+# sd_file <- "peche_georect_sd_2015_2019_20210818.shp"
 # sd_path <- paste(base_repo, sd_file, sep = "/")
 # sd_base <- st_read(dsn = sd_path)
 # save(sd_base, file = "raw_data/sd.RData")
@@ -103,19 +103,19 @@ path <- paste(base_repo, file, sep = "/")
 
 agence <- readxl::read_xls(path,
                            sheet = "TempTable") %>% 
-  clean_agence()
+  atlas::clean_agence()
 
 #-------------------------------------------------------------------
 # ASPE
 #-------------------------------------------------------------------
 
-load(file = "../../../ASPE/package/aspe_test/processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "../../../ASPE/package/aspe_test/processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
 
 # completion de référentiel des CRS
-ref_type_projection <- ref_type_projection %>%
-  mutate(typ_code_epsg = ifelse((is.na(typ_code_epsg) & typ_libelle_sandre == "Lambert II Etendu"),
-                                yes = 27572,
-                                no = typ_code_epsg))
+# ref_type_projection <- ref_type_projection %>%
+#   mutate(typ_code_epsg = ifelse((is.na(typ_code_epsg) & typ_libelle_sandre == "Lambert II Etendu"),
+#                                 yes = 27572,
+#                                 no = typ_code_epsg))
 
 # ajout du code EPSG aux pop
 mes_pops <- point_prelevement %>%
@@ -123,7 +123,7 @@ mes_pops <- point_prelevement %>%
             by = c("pop_typ_id" = "typ_id"))
 
 # homogénéisation des CRS et passage en sf
-mes_pops <- geo_convertir_coords_df(df = mes_pops,
+mes_pops <- aspe::geo_convertir_coords_df(df = mes_pops,
                                     var_x = "pop_coordonnees_x",
                                     var_y = "pop_coordonnees_y",
                                     var_crs_initial = "typ_code_epsg",
@@ -149,7 +149,7 @@ especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
                          "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX")
 
 aspe <- aspe %>% 
-  recode_and_filter_species (sp_to_remove = especes_a_supprimer)
+  atlas::recode_and_filter_species (sp_to_remove = especes_a_supprimer)
 
 # Repérage des bredouilles et interprétation de code_espece NA
 # le pb est qu'il ne s'agit pas nécessairement de bredouilles car il peut y avoir dans une même pêche des codes espèce

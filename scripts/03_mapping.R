@@ -6,12 +6,12 @@ library(tidyverse)
 
 rm(list=ls())
 
-load(file = "../processed_data/fish_and_geographical_data.RData")
+load(file = "processed_data/fish_and_geographical_data.RData")
 
 ###### Fonction de carte présente / absence d'une espèce
 # renvoie un message texte qui l'indique si l'espèce n'est présente nulle part sur la zone d'étude 
 
-species_mapping <- function (code_sp) {
+species_mapping <- function (data_df, code_sp) {
   
   # pour les bassins
   
@@ -141,7 +141,8 @@ species_mapping <- function (code_sp) {
         } 
 }
 
-species_mapping(code_sp = "TRF")
+species_mapping(data_df = data,
+                code_sp = "TRF")
 
 save(species_mapping, file = '../processed_data/species_mapping.RData')
 
