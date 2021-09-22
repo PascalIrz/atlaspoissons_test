@@ -6,7 +6,7 @@ library(tidyverse)
 library(sf)
 library(mapview)
 library(aspe)
-library(atlas)
+library(atlaspoissons)
 
 rm(list = ls())
 
@@ -35,7 +35,8 @@ bassins <- bassins %>%
   `st_crs<-`(2154) %>%
   st_transform(crs = 4326) %>%
   rename(code_exutoire = IDD) %>%
-  filter(TRUE)
+  filter(TRUE) %>% 
+  st_make_valid()
 
 save(bassins, file = "processed_data/bassins.RData")
 load("processed_data/bassins.RData")
@@ -54,7 +55,7 @@ load("processed_data/bassins.RData")
 load(file = "raw_data/wama.RData")
 
 wama <- wama_base %>% 
-  atlas::clean_wama()
+  atlaspoissons::clean_wama()
 
 save(wama, file = 'processed_data/wama.RData')
 
@@ -70,7 +71,7 @@ save(wama, file = 'processed_data/wama.RData')
 load(file = "raw_data/sd.RData")
 
 sd <- sd_base %>%
-  atlas::clean_sd()
+  atlaspoissons::clean_sd()
 
 save(sd, file = 'processed_data/sd.RData')
 
@@ -87,7 +88,7 @@ rm(sd_base, wama_base)
 load(file = "raw_data/fede.RData")
 
 fede <- fede_base %>% 
-  atlas::clean_fede()
+  atlaspoissons::clean_fede()
 
 save(fede, file = 'processed_data/fede.RData')
 
@@ -103,19 +104,13 @@ path <- paste(base_repo, file, sep = "/")
 
 agence <- readxl::read_xls(path,
                            sheet = "TempTable") %>% 
-  atlas::clean_agence()
+  atlaspoissons::clean_agence()
 
 #-------------------------------------------------------------------
 # ASPE
 #-------------------------------------------------------------------
 
 load(file = "../../../ASPE/package/aspe_test/processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
-
-# completion de référentiel des CRS
-# ref_type_projection <- ref_type_projection %>%
-#   mutate(typ_code_epsg = ifelse((is.na(typ_code_epsg) & typ_libelle_sandre == "Lambert II Etendu"),
-#                                 yes = 27572,
-#                                 no = typ_code_epsg))
 
 # ajout du code EPSG aux pop
 mes_pops <- point_prelevement %>%
@@ -124,23 +119,24 @@ mes_pops <- point_prelevement %>%
 
 # homogénéisation des CRS et passage en sf
 mes_pops <- aspe::geo_convertir_coords_df(df = mes_pops,
-                                    var_x = "pop_coordonnees_x",
-                                    var_y = "pop_coordonnees_y",
-                                    var_crs_initial = "typ_code_epsg",
-                                    crs_sortie = 4326) %>%
+                                          var_x = "pop_coordonnees_x",
+                                          var_y = "pop_coordonnees_y",
+                                          var_crs_initial = "typ_code_epsg",
+                                          crs_sortie = 4326) %>%
   sf::st_as_sf(coords = c("X", "Y"),
                crs = 4326)
 
-# attribution des bassins aux points
+# attribution des bassins aux points pour sélectionner ceux qui sont dans les BV considérés
 mes_pops <- mes_pops %>% 
   sf::st_join(bassins) %>%
   filter(!is.na(code_exutoire)) %>% 
   pull(pop_id)
 
+
 # exclusion des points qui ne sont pas dans nos bassins + nettoyage
 aspe <- mef_creer_passerelle() %>% 
   filter(pop_id %in% mes_pops) %>% 
-  atlas::clean_aspe()
+  atlaspoissons::clean_aspe()
 
 
 # Liste des codes espèces à supprimer
@@ -149,7 +145,7 @@ especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
                          "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX")
 
 aspe <- aspe %>% 
-  atlas::recode_and_filter_species (sp_to_remove = especes_a_supprimer)
+  atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer)
 
 # Repérage des bredouilles et interprétation de code_espece NA
 # le pb est qu'il ne s'agit pas nécessairement de bredouilles car il peut y avoir dans une même pêche des codes espèce
@@ -227,7 +223,11 @@ save(aspe, file = 'processed_data/aspe.RData')
 # ---------------------------------------------------------------------
 ############ empilement des fichiers + passage en sf
 
-gdata::keep(wama, sd, fede, aspe, agence,
+gdata::keep(wama,
+            sd,
+            fede,
+            aspe,
+            agence,
             bassins,
             sure = T)
 
@@ -235,6 +235,7 @@ data <- bind_rows(wama, sd, fede, aspe, agence) %>%
   mutate(code_station = ifelse(is.na(code_station),
                                paste(round(x_wgs84, 6), round(y_wgs84, 6), sep = "_"),
                                code_station)) %>% 
+  mutate(date_peche = as.Date(date_peche)) %>% 
   mutate_if(is.character, as.factor) %>%
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326) %>% 
@@ -260,7 +261,7 @@ gdata::keep(data,
             sure = T)
 
 # liste des bassins avec au moins une pêche
- liste_bassins_mini_une_peche <- data %>% 
+liste_bassins_mini_une_peche <- data %>% 
   pull(code_exutoire) %>% 
   unique()
 
@@ -269,6 +270,7 @@ liste_bassins_sans_peches <- bassins %>%
   pull(code_exutoire) %>% 
   setdiff(liste_bassins_mini_une_peche)
 
+# carte des bv non prospectés
 carte_bv_non_prospectes <- bassins %>%
   filter(code_exutoire %in% liste_bassins_sans_peches) %>%
   mapview()
@@ -364,10 +366,10 @@ n_stations_par_bassin <- data %>%
 bassins_simp <- bassins %>% 
   select(code_exutoire, toponyme, geometry)
 
-n_peches_par_station <- data %>% 
+n_annees_par_station <- data %>% 
   st_drop_geometry() %>% 
   group_by(code_station) %>% 
-    summarise(n_peches = n_distinct(date_peche)) %>% 
+    summarise(n_peches = n_distinct(annee)) %>% 
   ungroup()
 
 
