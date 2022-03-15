@@ -7,6 +7,7 @@ library(sf)
 library(mapview)
 library(aspe)
 library(atlaspoissons)
+library(devtools)
 
 rm(list = ls())
 
@@ -95,6 +96,20 @@ save(fede, file = 'processed_data/fede.RData')
 rm(fede_base)
 
 #-------------------------------------------------------------------
+# fédé 35
+#-------------------------------------------------------------------
+
+fede35_base <- lire_xlsx_fede35(repertoire = "raw_data", 
+                           fichier_reference = "CR op pêche elec FD35 2020-VF.xlsx")
+
+fede35 <- fede35_base %>% 
+  clean_fede35()
+
+save(fede35, file = 'processed_data/fede35.RData')
+
+rm(fede35_base)
+
+#-------------------------------------------------------------------
 # agence eau Loire Bretagne
 #-------------------------------------------------------------------
 
@@ -110,7 +125,7 @@ agence <- readxl::read_xls(path,
 # ASPE
 #-------------------------------------------------------------------
 
-load(file = "../../../ASPE/package/aspe_test/processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
+load(file = "../../../ASPE/raw_data/tables_sauf_mei_2022_03_08_17_55_06.RData")
 
 # ajout du code EPSG aux pop
 mes_pops <- point_prelevement %>%
