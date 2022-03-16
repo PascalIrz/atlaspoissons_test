@@ -3,6 +3,7 @@
 # il faut homogénéiser les jeux de données pour pouvoir les empiler
 
 library(tidyverse)
+library(lubridate)
 library(sf)
 library(mapview)
 library(aspe)
@@ -98,19 +99,11 @@ rm(fede_base)
 #-------------------------------------------------------------------
 # fédé 35
 #-------------------------------------------------------------------
-
-fede35_base <- lire_xlsx_fede35(repertoire = "raw_data", 
+fede35_base <- lire_xlsx_fede35(repertoire = "raw_data/donnees_fd35", 
                            fichier_reference = "CR op pêche elec FD35 2020-VF.xlsx")
 
 fede35 <- fede35_base %>% 
-  clean_fede35() %>% 
-  mutate(date_peche = ymd(date_peche)) %>% 
-  mutate(date_peche = ifelse(is.na(date_peche),
-                       yes = min(date_peche, na.rm = TRUE),
-                       no = date_peche))
-
-fede35 <- fede35 %>%
-  mutate_at(vars(y_wgs84, effectif), as.numeric)
+  clean_fede35() 
 
 save(fede35, file = 'processed_data/fede35.RData')
 
@@ -271,7 +264,7 @@ gdata::keep(wama,
 data <- bind_rows(wama,
                   sd,
                   fede,
-                  fede35,
+                  fede35 %>% mutate(effectif = as.numeric(effectif)),
                   aspe,
                   agence) %>%
   mutate(code_station = ifelse(
