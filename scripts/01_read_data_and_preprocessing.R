@@ -103,7 +103,14 @@ fede35_base <- lire_xlsx_fede35(repertoire = "raw_data",
                            fichier_reference = "CR op pêche elec FD35 2020-VF.xlsx")
 
 fede35 <- fede35_base %>% 
-  clean_fede35()
+  clean_fede35() %>% 
+  mutate(date_peche = ymd(date_peche)) %>% 
+  mutate(date_peche = ifelse(is.na(date_peche),
+                       yes = min(date_peche, na.rm = TRUE),
+                       no = date_peche))
+
+fede35 <- fede35 %>%
+  mutate_at(vars(y_wgs84, effectif), as.numeric)
 
 save(fede35, file = 'processed_data/fede35.RData')
 
@@ -133,25 +140,38 @@ mes_pops <- point_prelevement %>%
             by = c("pop_typ_id" = "typ_id"))
 
 # homogénéisation des CRS et passage en sf
-mes_pops <- aspe::geo_convertir_coords_df(df = mes_pops,
-                                          var_x = "pop_coordonnees_x",
-                                          var_y = "pop_coordonnees_y",
-                                          var_crs_initial = "typ_code_epsg",
-                                          crs_sortie = 4326) %>%
-  sf::st_as_sf(coords = c("X", "Y"),
+coords <- aspe::geo_convertir_coords_df(df = mes_pops,
+                                          var_x = pop_coordonnees_x,
+                                          var_y = pop_coordonnees_y,
+                                          var_crs_initial = typ_code_epsg,
+                                          crs_sortie = 4326)
+
+
+
+mes_pops <- mes_pops %>% 
+  cbind(coords) %>% 
+    sf::st_as_sf(coords = c("X", "Y"),
                crs = 4326)
 
 # attribution des bassins aux points pour sélectionner ceux qui sont dans les BV considérés
+
+# vérification !
+# mes_pops <- mes_pops %>% 
+#   sf::st_join(bassins) %>%
+#   filter(!is.na(code_exutoire))
+# 
+# mapview(mes_pops) 
+
 mes_pops <- mes_pops %>% 
   sf::st_join(bassins) %>%
-  filter(!is.na(code_exutoire)) %>% 
+  filter(!is.na(code_exutoire)) %>%
   pull(pop_id)
 
 
 # exclusion des points qui ne sont pas dans nos bassins + nettoyage
 aspe <- mef_creer_passerelle() %>% 
   filter(pop_id %in% mes_pops) %>% 
-  atlaspoissons::clean_aspe()
+  clean_aspe()
 
 
 # Liste des codes espèces à supprimer
@@ -242,19 +262,29 @@ gdata::keep(wama,
             sd,
             fede,
             aspe,
+            fede35,
             agence,
             bassins,
             sure = T)
 
-data <- bind_rows(wama, sd, fede, aspe, agence) %>% 
-  mutate(code_station = ifelse(is.na(code_station),
-                               paste(round(x_wgs84, 6), round(y_wgs84, 6), sep = "_"),
-                               code_station)) %>% 
-  mutate(date_peche = as.Date(date_peche)) %>% 
+
+data <- bind_rows(wama,
+                  sd,
+                  fede,
+                  fede35,
+                  aspe,
+                  agence) %>%
+  mutate(code_station = ifelse(
+    is.na(code_station),
+    paste(round(x_wgs84, 6), round(y_wgs84, 6), sep = "_"),
+    code_station
+  )) %>%
+  mutate(date_peche = as.Date(date_peche)) %>%
   mutate_if(is.character, as.factor) %>%
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
-           crs = 4326) %>% 
-  filter(annee > 2010 | is.na(annee)) # suppression des données anciennes de aspe / wama
+           crs = 4326) %>%
+  filter(annee > 2010 |
+           is.na(annee)) # suppression des données anciennes de aspe / wama
 
 # attribution sur l'ensemble du jdd des bassins
 data <- data %>%
