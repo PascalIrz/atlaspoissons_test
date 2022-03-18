@@ -44,24 +44,6 @@ save(bassins, file = "processed_data/bassins.RData")
 load("processed_data/bassins.RData")
 
 #-------------------------------------------------------------------
-# WAMA - NB pas de date de pêche
-#-------------------------------------------------------------------
-
-# base_repo <- "//dr35stoc/partages_$/dr35_projets/PROJETS/ATLAS_POISSONS/donnees_geographiques_reference"
-# base_repo <- "raw_data/donnees_geographiques_reference"
-# wama_file <- "peches_WAMA_BZH_1978_2019_20200215.shp"
-# wama_path <- paste(base_repo, wama_file, sep = "/")
-# wama_base <- st_read(wama_path)
-# save(wama_base, file = "raw_data/wama.RData")
-
-load(file = "raw_data/wama.RData")
-
-wama <- wama_base %>% 
-  atlaspoissons::clean_wama()
-
-save(wama, file = 'processed_data/wama.RData')
-
-#-------------------------------------------------------------------
 # SD
 #-------------------------------------------------------------------
 
@@ -83,24 +65,24 @@ rm(sd_base, wama_base)
 # fédé 56
 #-------------------------------------------------------------------
 
-# fede_file <- "peche_fede_56_20200215.shp"
-# fede_path <- paste(base_repo, fede_file, sep = "/")
-# fede_base <- st_read(dsn = fede_path)
-# save(fede_base, file = "raw_data/fede.RData")
-load(file = "raw_data/fede.RData")
+# fede56_file <- "peche_fede_56_20200215.shp"
+# fede56_path <- paste(base_repo, fede56_file, sep = "/")
+# fede56_base <- st_read(dsn = fede56_path)
+# save(fede56_base, file = "raw_data/fede56.RData")
+# load(file = "raw_data/fede56.RData")
 
-fede <- fede_base %>% 
+fede56 <- fede56_base %>% 
   atlaspoissons::clean_fede()
 
-save(fede, file = 'processed_data/fede.RData')
+save(fede56, file = 'processed_data/fede56.RData')
 
-rm(fede_base)
+rm(fede56_base)
 
 #-------------------------------------------------------------------
 # fédé 35
 #-------------------------------------------------------------------
 fede35_base <- lire_xlsx_fede35(repertoire = "raw_data/donnees_fd35", 
-                           fichier_reference = "CR op pêche elec FD35 2020-VF.xlsx")
+                                fichier_reference = "CR op pêche elec FD35 2020-VF.xlsx")
 
 fede35 <- fede35_base %>% 
   clean_fede35() 
@@ -208,7 +190,34 @@ save(aspe, file = 'processed_data/aspe.RData')
 # 
 # rm(fish_aspe_bzh_wide, fish_aspe_bzh_wide_geo, fish_aspe, bredouilles, fish_ref)
 
+#-------------------------------------------------------------------
+# WAMA - NB pas de date de pêche ; codes stations sont codes sandre à "padifier"
+#-------------------------------------------------------------------
 
+# base_repo <- "//dr35stoc/partages_$/dr35_projets/PROJETS/ATLAS_POISSONS/donnees_geographiques_reference"
+# base_repo <- "raw_data/donnees_geographiques_reference"
+# wama_file <- "peches_WAMA_BZH_1978_2019_20200215.shp"
+# wama_path <- paste(base_repo, wama_file, sep = "/")
+# wama_base <- st_read(wama_path)
+# save(wama_base, file = "raw_data/wama.RData")
+
+load(file = "raw_data/wama.RData")
+
+wama <- wama_base %>% 
+  atlaspoissons::clean_wama()
+
+# on complète les codes sandre station qui ont perdu leurs zéros de tête
+# et récupère les libellés des stations depuis la table "station" de aspe
+wama <- wama %>% 
+  mutate(code_station = str_pad(code_station, width = 8, pad = "0", side = "left")) %>% 
+  left_join(station %>% select(code_station = sta_code_sandre,
+                               sta_libelle_sandre)) %>% 
+  mutate(localisation = sta_libelle_sandre) %>% 
+  select(-sta_libelle_sandre)
+
+
+
+save(wama, file = 'processed_data/wama.RData')
 
 
 # ---------------------------------------------------------------------
@@ -216,9 +225,9 @@ save(aspe, file = 'processed_data/aspe.RData')
 
 gdata::keep(wama,
             sd,
-            fede,
-            aspe,
+            fede56,
             fede35,
+            aspe,
             agence,
             bassins,
             sure = T)
@@ -226,8 +235,8 @@ gdata::keep(wama,
 
 data <- bind_rows(wama,
                   sd,
-                  fede,
-                  fede35 %>% mutate(effectif = as.numeric(effectif)),
+                  fede56,
+                  fede35,
                   aspe,
                   agence) %>%
   mutate(code_station = ifelse(
