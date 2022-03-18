@@ -175,46 +175,9 @@ especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
 aspe <- aspe %>% 
   atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer)
 
-# Repérage des bredouilles et interprétation de code_espece NA
-# le pb est qu'il ne s'agit pas nécessairement de bredouilles car il peut y avoir dans une même pêche des codes espèce
-# valides et des NA => signification ?
-# on fait l'hypothèse que les seules bredouilles sont les cas où il n'y a que du NA en code espèce pour une pêche 
-# en considérant une pêche comme une combinaison (X, Y, date)
-# les pêches avec NA comme seul code espèce - on les mets au format de fish_aspe pour pouvoir ensuite les empiler
-
-# bredouilles <- fish_aspe %>% 
-#   filter(is.na(code_espece)) %>% 
-#   select(x_wgs84, y_wgs84, ope_date, code_station) %>% 
-#   left_join(x = fish_aspe, by = c("x_wgs84", "y_wgs84", "ope_date", "code_station")) %>% 
-#   group_by(ope_date, type_peche, x_wgs84, y_wgs84, code_station) %>% 
-#       tally() %>% 
-#   ungroup() %>% 
-#   filter(n == 1) %>% 
-#   mutate(code_espece = as.character(NA), effectif = as.integer(NA)) %>% 
-#   select(x_wgs84, y_wgs84, type_peche, ope_date, code_espece, code_station, effectif)
-
-# traitement des autres codes espèces NA : on supprime les lignes
-
-# fish_aspe <- fish_aspe %>% 
-#   filter(!is.na(code_espece))
-
-#  aspe <- rbind(fish_aspe, bredouilles) %>% 
-#  filter(TRUE) %>% 
-# aspe <- fish_aspe %>% 
-#   mutate(code_exutoire = NA,
-#          localisation = NA,
-#          organisme = "ASPE") %>% 
-#   select(code_exutoire, code_station, localisation, x_wgs84, y_wgs84, date_peche = ope_date, organisme,
-#          type_peche, code_espece, effectif) %>% 
-#   mutate_at(vars(code_station, localisation, date_peche), as.character) %>% 
-#   filter(TRUE)
-
 save(aspe, file = 'processed_data/aspe.RData')
 
-# rm(fish_aspe, bredouilles, fish_ref)
-# 
-# aspe <- aspe %>% 
-#   mutate_at(vars(code_station, localisation, date_peche), as.character)
+
 
 ####################################################
 # ASPE pour Josselin
