@@ -65,11 +65,11 @@ rm(sd_base, wama_base)
 # fédé 56
 #-------------------------------------------------------------------
 
-# fede56_file <- "peche_fede_56_20200215.shp"
-# fede56_path <- paste(base_repo, fede56_file, sep = "/")
-# fede56_base <- st_read(dsn = fede56_path)
-# save(fede56_base, file = "raw_data/fede56.RData")
-# load(file = "raw_data/fede56.RData")
+fede56_file <- "peche_fede_56_20200215.shp"
+fede56_path <- paste(base_repo, fede56_file, sep = "/")
+fede56_base <- st_read(dsn = fede56_path)
+save(fede56_base, file = "raw_data/fede56.RData")
+load(file = "raw_data/fede56.RData")
 
 fede56 <- fede56_base %>% 
   atlaspoissons::clean_fede()
