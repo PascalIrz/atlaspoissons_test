@@ -245,8 +245,17 @@ data <- bind_rows(wama,
     code_station
   )) %>%
   mutate(date_peche = as.Date(date_peche)) %>%
+  mutate(ope_id = paste0(code_station,date_peche)) %>%
   mutate_if(is.character, as.factor) %>%
-  st_as_sf(coords = c("x_wgs84", "y_wgs84"),
+  group_by_at(vars(-effectif)) %>% 
+  summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
+  ungroup()
+
+
+df_ope 
+
+
+st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326) %>%
   filter(annee > 2010 |
            is.na(annee)) # suppression des données anciennes de aspe / wama
