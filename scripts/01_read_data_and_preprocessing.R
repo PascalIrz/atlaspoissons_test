@@ -404,5 +404,3 @@ n_annees_par_station <- data %>%
 
 save.image(file = "processed_data/fish_and_geographical_data.RData")
 
-mapview(data)
-
