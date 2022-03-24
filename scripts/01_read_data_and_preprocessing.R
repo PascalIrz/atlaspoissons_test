@@ -263,9 +263,8 @@ data <- bind_rows(wama,
   mutate_if(is.character, as.factor) %>%
   group_by_at(vars(-effectif)) %>% 
   summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
-  ungroup()
-
-st_as_sf(coords = c("x_wgs84", "y_wgs84"),
+  ungroup() %>% 
+  st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326) %>%
   filter(annee > 2010 |
            is.na(annee)) # suppression des données anciennes de aspe / wama
@@ -405,4 +404,5 @@ n_annees_par_station <- data %>%
 
 save.image(file = "processed_data/fish_and_geographical_data.RData")
 
+mapview(data)
 
