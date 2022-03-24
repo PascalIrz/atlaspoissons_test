@@ -160,15 +160,6 @@ aspe <- mef_creer_passerelle() %>%
   filter(pop_id %in% mes_pops) %>% 
   clean_aspe()
 
-
-# Liste des codes espèces à supprimer
-especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
-                         "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC", "GRV",
-                         "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX")
-
-aspe <- aspe %>% 
-  atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer)
-
 save(aspe, file = 'processed_data/aspe.RData')
 
 
@@ -268,6 +259,14 @@ data <- bind_rows(wama,
            crs = 4326) %>%
   filter(annee > 2010 |
            is.na(annee)) # suppression des données anciennes de aspe / wama
+
+# Liste des codes espèces à supprimer
+especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
+                         "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC", "GRV",
+                         "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX")
+
+data <- data %>% 
+  atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer)
 
 # attribution sur l'ensemble du jdd des bassins
 data <- data %>%
