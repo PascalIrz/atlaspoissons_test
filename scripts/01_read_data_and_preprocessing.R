@@ -92,6 +92,18 @@ save(fede35, file = 'processed_data/fede35.RData')
 rm(fede35_base)
 
 #-------------------------------------------------------------------
+# fédé 22
+#-------------------------------------------------------------------
+fede22_base <- lire_xls_fede22("raw_data/donnees_fede22/FDPPMA 22_baseexcelpêches_scientifiques_OFB 2021.xls")
+
+fede22 <- fede22_base %>% 
+  clean_fede22() 
+
+save(fede22, file = 'processed_data/fede22.RData')
+
+rm(fede22_base)
+
+#-------------------------------------------------------------------
 # agence eau Loire Bretagne
 #-------------------------------------------------------------------
 
@@ -227,6 +239,7 @@ gdata::keep(wama,
             sd,
             fede56,
             fede35,
+            fede22,
             aspe,
             agence,
             bassins,
@@ -237,6 +250,7 @@ data <- bind_rows(wama,
                   sd,
                   fede56,
                   fede35,
+                  fede22,
                   aspe,
                   agence) %>%
   mutate(code_station = ifelse(
