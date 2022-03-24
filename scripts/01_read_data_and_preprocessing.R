@@ -260,6 +260,7 @@ data <- bind_rows(wama,
   filter(annee > 2010 |
            is.na(annee)) # suppression des données anciennes de aspe / wama
 
+# ERREUR !! Il n'y a pas de x_wgs84 pour "data" donc comment faire pour corriger pour l'épinoche/épinochette ?
 # Liste des codes espèces à supprimer
 especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
                          "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC", "GRV",
