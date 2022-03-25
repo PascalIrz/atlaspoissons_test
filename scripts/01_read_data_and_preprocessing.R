@@ -259,13 +259,13 @@ data <- bind_rows(wama,
   mutate_if(is.character, as.factor) %>%
   group_by_at(vars(-effectif)) %>% 
   summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
-  ungroup() %>% 
+  ungroup()%>% 
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326) %>%
   filter(annee > 2010 |
-           is.na(annee)) # suppression des données anciennes de aspe / wama
-
-  
+           is.na(annee)) %>%  # suppression des données anciennes de aspe / wama
+  ajouter_absence() %>% 
+  st_sf()
 
 # attribution sur l'ensemble du jdd des bassins
 data <- data %>%
