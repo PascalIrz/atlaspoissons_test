@@ -236,6 +236,10 @@ gdata::keep(wama,
             bassins,
             sure = T)
 
+#Liste des espèces à supprimer
+especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
+                         "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC", "GRV",
+                         "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX")
 
 data <- bind_rows(wama,
                   sd,
@@ -244,6 +248,7 @@ data <- bind_rows(wama,
                   fede22,
                   aspe,
                   agence) %>%
+  atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
   mutate(code_station = ifelse(
     is.na(code_station),
     paste(round(x_wgs84, 6), round(y_wgs84, 6), sep = "_"),
@@ -260,14 +265,7 @@ data <- bind_rows(wama,
   filter(annee > 2010 |
            is.na(annee)) # suppression des données anciennes de aspe / wama
 
-# ERREUR !! Il n'y a pas de x_wgs84 pour "data" donc comment faire pour corriger pour l'épinoche/épinochette ?
-# Liste des codes espèces à supprimer
-especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
-                         "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC", "GRV",
-                         "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX")
-
-data <- data %>% 
-  atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer)
+  
 
 # attribution sur l'ensemble du jdd des bassins
 data <- data %>%
