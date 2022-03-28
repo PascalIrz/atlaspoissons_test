@@ -116,10 +116,10 @@ mes_pops <- point_prelevement %>%
 
 # homogénéisation des CRS et passage en sf
 coords <- aspe::geo_convertir_coords_df(df = mes_pops,
-                                          var_x = pop_coordonnees_x,
-                                          var_y = pop_coordonnees_y,
-                                          var_crs_initial = typ_code_epsg,
-                                          crs_sortie = 4326)
+                                        var_x = pop_coordonnees_x,
+                                        var_y = pop_coordonnees_y,
+                                        var_crs_initial = typ_code_epsg,
+                                        crs_sortie = 4326)
 
 
 
