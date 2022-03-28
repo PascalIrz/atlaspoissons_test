@@ -9,7 +9,7 @@ datapt <- datapt %>%
 
 cartept <- datapt %>% 
   sample_n(500) %>% 
-  mapview(zcol="presence", cex = "effectif", col.regions = list("green","red"))
+  mapview(zcol="presence", cex = "effectif", col.regions = list("#ff0055", "#b3e93e"))
 
 cartept
 
@@ -25,17 +25,15 @@ databv <- databv %>%
 
 cartebv <- databv %>% 
   sample_n(500, replace = TRUE) %>% 
-  mapview(zcol="statut", col.regions = list("red","orange", "green","grey"), alpha.regions = 0.3)
+  mapview(zcol="statut", col.regions = list("#d18975", "#d1ab75", "#8fd175"), alpha.regions = 0.3)
 
 cartebv
+mapview(bassins_simp)
 # ça n'affiche rien, juste la légende
 
 # =============================================================================
 #                         CARTE POUR LES DEUX                                  
 # =============================================================================
 
-data3_sample <- data3 %>% 
-  sample_n(500, )
-
-mapview(datapt, zcol="presence", cex = "effectif", col.regions = list("green", "red")) +
-  mapview(databv, ...)
+mapview(bassins_simp, col.regions = "#8fd175") +
+  mapview(datapt, zcol="presence", cex = "effectif", col.regions = list("#ff0055", "#b3e93e"))
