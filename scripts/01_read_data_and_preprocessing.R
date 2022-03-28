@@ -92,6 +92,18 @@ save(fede35, file = 'processed_data/fede35.RData')
 rm(fede35_base)
 
 #-------------------------------------------------------------------
+# fédé 22
+#-------------------------------------------------------------------
+fede22_base <- lire_xls_fede22("raw_data/donnees_fede22/FDPPMA 22_baseexcelpêches_scientifiques_OFB 2021.xls")
+
+fede22 <- fede22_base %>% 
+  clean_fede22() 
+
+save(fede22, file = 'processed_data/fede22.RData')
+
+rm(fede22_base)
+
+#-------------------------------------------------------------------
 # agence eau Loire Bretagne
 #-------------------------------------------------------------------
 
@@ -147,15 +159,6 @@ mes_pops <- mes_pops %>%
 aspe <- mef_creer_passerelle() %>% 
   filter(pop_id %in% mes_pops) %>% 
   clean_aspe()
-
-
-# Liste des codes espèces à supprimer
-especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
-                         "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC", "GRV",
-                         "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX")
-
-aspe <- aspe %>% 
-  atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer)
 
 save(aspe, file = 'processed_data/aspe.RData')
 
@@ -227,18 +230,25 @@ gdata::keep(wama,
             sd,
             fede56,
             fede35,
+            fede22,
             aspe,
             agence,
             bassins,
             sure = T)
 
+#Liste des espèces à supprimer
+especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
+                         "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC", "GRV",
+                         "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX")
 
 data <- bind_rows(wama,
                   sd,
                   fede56,
                   fede35,
+                  fede22,
                   aspe,
                   agence) %>%
+  atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
   mutate(code_station = ifelse(
     is.na(code_station),
     paste(round(x_wgs84, 6), round(y_wgs84, 6), sep = "_"),
@@ -249,11 +259,13 @@ data <- bind_rows(wama,
   mutate_if(is.character, as.factor) %>%
   group_by_at(vars(-effectif)) %>% 
   summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
-  ungroup() %>% 
+  ungroup()%>% 
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326) %>%
   filter(annee > 2010 |
-           is.na(annee)) # suppression des données anciennes de aspe / wama
+           is.na(annee)) %>%  # suppression des données anciennes de aspe / wama
+  ajouter_absence() %>% 
+  st_sf()
 
 # attribution sur l'ensemble du jdd des bassins
 data <- data %>%
@@ -389,5 +401,4 @@ n_annees_par_station <- data %>%
 
 
 save.image(file = "processed_data/fish_and_geographical_data.RData")
-
 
