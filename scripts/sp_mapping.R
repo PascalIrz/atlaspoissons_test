@@ -33,5 +33,5 @@ cartebv
 #                         CARTE POUR LES DEUX                                  
 # =============================================================================
 
-mapview(databv_ABH, zcol="statut", alpha.region = 0.3) +
+map <- mapview(databv_ABH, zcol="statut", alpha.region = 0.3) +
   mapview(datapt_ABH, zcol="presence", cex = "effectif")
