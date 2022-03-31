@@ -5,3 +5,48 @@
 # Essais
 # Bassins versants, esssayer de mettre la carte avec une liste déroulante
 # des espèces (noms en français plutôt que nom latin)
+
+library(shiny)
+library(shinydashboard)
+library(leaflet)
+library(leafem)
+
+ui <- dashboardPage(skin = "green",
+                    
+  dashboardHeader(title = "Atlas des poissons d'eau douce de Bretagne",
+                  titleWidth = 440),
+  
+  sidebar,
+  
+  dashboardBody(
+    tabItems(
+      tabItem(tabName = "carto",
+              h2("Cartographie"),
+              fluidRow(
+                box(mapviewOutput("map")),
+                
+                box(
+                  "Box content here", br(), "More box content",
+                  # sliderInput("slider", "Slider input:", 1, 100, 50),
+                  # textInput("text", "Text input:"
+                            )
+                )
+              )
+    ),
+    
+    tabItem(tabName = "methodo",
+            h2("Méthodologie et données")
+    )
+  )
+)
+
+
+server <- function(input,output) {
+  
+  output$map<-renderLeaflet({ mapview(cartebv)@map
+   # ou alors:mapview::mapview2leaflet(cartebv) 
+    }) 
+  
+}
+
+shinyApp(ui,server)
