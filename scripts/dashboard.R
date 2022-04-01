@@ -8,6 +8,7 @@
 
 library(shiny)
 library(shinydashboard)
+library(mapview)
 library(leaflet)
 library(leafem)
 
@@ -23,7 +24,7 @@ ui <- dashboardPage(skin = "green",
       tabItem(tabName = "carto",
               h2("Cartographie"),
               fluidRow(
-                box(mapviewOutput("map")),
+                box(leafletOutput("map")),
                 
                 box(
                   "Box content here", br(), "More box content",
@@ -31,11 +32,10 @@ ui <- dashboardPage(skin = "green",
                   # textInput("text", "Text input:"
                             )
                 )
-              )
-    ),
+              ),
     
     tabItem(tabName = "methodo",
-            h2("Méthodologie et données")
+            h2("Méthodologie et données"))
     )
   )
 )
@@ -43,9 +43,11 @@ ui <- dashboardPage(skin = "green",
 
 server <- function(input,output) {
   
-  output$map<-renderLeaflet({ mapview(cartebv)@map
-   # ou alors:mapview::mapview2leaflet(cartebv) 
-    }) 
+  output$map<-renderLeaflet({ mapview(databv_ABH, zcol="statut", alpha.region = 0.3)@map 
+    # +
+    #   mapview(datapt_ABH, zcol="presence", cex = "effectif")@map
+  # ou alors:mapview::mapview2leaflet(cartebv) 
+  })
   
 }
 
