@@ -23,16 +23,8 @@ ui <- dashboardPage(skin = "green",
     tabItems(
       tabItem(tabName = "carto",
               h2("Cartographie"),
-              fluidRow(
-                box(leafletOutput("mapbv"),
-                    leafletOutput("mappt")),
-                
-                box(
-                  "Box content here", br(), "More box content",
-                  # sliderInput("slider", "Slider input:", 1, 100, 50),
-                  # textInput("text", "Text input:"
-                            )
-                )
+              fluidRow(box1,
+                       box2)
               ),
     
     tabItem(tabName = "methodo",
@@ -44,7 +36,7 @@ ui <- dashboardPage(skin = "green",
 
 server <- function(input,output) {
   
-  output$mapbv<-renderLeaflet({ maps_ABH@map
+  output$map<-renderLeaflet({ maps_ABH@map
   })
   
   # output$mappt<-renderLeaflet({ mapview(datapt_ABH, zcol="presence", cex = "effectif")@map

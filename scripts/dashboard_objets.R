@@ -14,12 +14,19 @@ sidebar <- dashboardSidebar(
 
 ##### boxes #####
 
-box1 <- box("i am a box")
+  
+box1 <- box(leafletOutput("map"))
 
-box2 <- box(
-  "Box content here", br(), "More box content",
-  sliderInput("slider", "Slider input:", 1, 100, 50),
-  textInput("text", "Text input:"))
+box2 <- box(selectInput("select",
+                        "Select smth",
+                        list("Choice 1" = 1, "Choice 2" = 2,
+                             "Choice 3" = 3),
+                        selected = 1,
+                        multiple = FALSE,
+                        selectize = TRUE,
+                        width = NULL,
+                        size = NULL)
+            )
 
 ##### maps #####
 
