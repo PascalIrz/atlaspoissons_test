@@ -20,3 +20,8 @@ box2 <- box(
   "Box content here", br(), "More box content",
   sliderInput("slider", "Slider input:", 1, 100, 50),
   textInput("text", "Text input:"))
+
+##### maps #####
+
+maps_ABH <- mapview(databv_ABH, zcol="statut", alpha.region = 0.3) +
+  mapview(datapt_ABH, zcol="presence", cex = "effectif")

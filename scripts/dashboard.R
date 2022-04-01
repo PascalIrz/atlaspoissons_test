@@ -24,7 +24,8 @@ ui <- dashboardPage(skin = "green",
       tabItem(tabName = "carto",
               h2("Cartographie"),
               fluidRow(
-                box(leafletOutput("map")),
+                box(leafletOutput("mapbv"),
+                    leafletOutput("mappt")),
                 
                 box(
                   "Box content here", br(), "More box content",
@@ -43,11 +44,11 @@ ui <- dashboardPage(skin = "green",
 
 server <- function(input,output) {
   
-  output$map<-renderLeaflet({ mapview(databv_ABH, zcol="statut", alpha.region = 0.3)@map 
-    # +
-    #   mapview(datapt_ABH, zcol="presence", cex = "effectif")@map
-  # ou alors:mapview::mapview2leaflet(cartebv) 
+  output$mapbv<-renderLeaflet({ maps_ABH@map
   })
+  
+  # output$mappt<-renderLeaflet({ mapview(datapt_ABH, zcol="presence", cex = "effectif")@map
+  # })
   
 }
 
