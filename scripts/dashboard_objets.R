@@ -13,22 +13,24 @@ sidebar <- dashboardSidebar(
 
 
 ##### boxes #####
-
   
 box1 <- box(leafletOutput("map"))
 
 box2 <- box(selectInput("select",
                         "Select smth",
-                        list("Choice 1" = 1, "Choice 2" = 2,
-                             "Choice 3" = 3),
+                        list(data$code_espece),
                         selected = 1,
                         multiple = FALSE,
                         selectize = TRUE,
                         width = NULL,
-                        size = NULL)
+                        size = NULL
+                        )
             )
 
 ##### maps #####
 
-maps_ABH <- mapview(databv_ABH, zcol="statut", alpha.region = 0.3) +
-  mapview(datapt_ABH, zcol="presence", cex = "effectif")
+databv_abh <- filter(databv,code_espece == "ABH")
+datapt_abh <- filter(datapt,code_espece == "ABH")
+map_abh <- mapview(databv_abh, zcol="statut", alpha.region = 0.3) +
+  mapview(datapt_abh, zcol="presence", cex = "effectif")
+

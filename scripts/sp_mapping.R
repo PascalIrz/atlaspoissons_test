@@ -3,15 +3,14 @@
 # =============================================================================
 datapt <- donner_statut_sp_point(data)
 
-datapt_ABH <- datapt %>% 
+datapt <- datapt %>% 
   left_join(data) %>% 
-  filter(code_espece == "ABH") %>%
   st_sf
 
-cartept_ABH <- datapt_ABH %>% 
+cartept <- datapt %>% 
   mapview(zcol="presence", cex = "effectif")
 
-cartept_ABH
+cartept
 
 # =============================================================================
 #                         CARTE POUR LES BV                                    
@@ -19,12 +18,11 @@ cartept_ABH
 
 databv <- donner_statut_sp_bv(data)
 
-databv_ABH <- databv %>% 
+databv <- databv %>% 
   left_join(bassins_simp) %>%
-  filter(code_espece == "ABH") %>% 
   st_sf
 
-cartebv_ABH <- databv_ABH %>% 
+cartebv <- databv %>% 
   mapview(zcol="statut")
 
 cartebv
@@ -33,5 +31,5 @@ cartebv
 #                         CARTE POUR LES DEUX                                  
 # =============================================================================
 
-map <- mapview(databv_ABH, zcol="statut", alpha.region = 0.3) +
-  mapview(datapt_ABH, zcol="presence", cex = "effectif")
+map <- mapview(databv, zcol="statut", alpha.region = 0.3) +
+  mapview(datapt, zcol="presence", cex = "effectif")

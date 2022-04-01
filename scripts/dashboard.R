@@ -36,9 +36,13 @@ ui <- dashboardPage(skin = "green",
 
 server <- function(input,output) {
   
-  output$map<-renderLeaflet({ maps_ABH@map
+  data <- reactive( {rnorm(input$map)})
+  
+  output$map<-renderLeaflet({ map@map
   })
   
+  # output$select
+  # 
   # output$mappt<-renderLeaflet({ mapview(datapt_ABH, zcol="presence", cex = "effectif")@map
   # })
   
