@@ -30,11 +30,11 @@ box1 <- box(leafletOutput("map"))
 
 box2 <- box(selectInput("select",
                         "Select smth",
-                        list(espece = map_abh, "ABL" = map_abl),
+                        list(`Able de Heckel` = map_abh, Ablette = map_abl),
                         selected = 1,
                         multiple = FALSE,
                         selectize = TRUE,
                         width = NULL,
-                        size = NULL
+                        size = NULL)
 )
-)
+
