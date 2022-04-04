@@ -9,7 +9,9 @@ datapt <- datapt %>%
 
 cartept <- datapt %>% 
   sample_n(500) %>% 
-  mapview(zcol="presence", cex = "effectif", col.regions = list("#ff0055", "#b3e93e"))
+  mapview(zcol = "presence",
+          cex = "effectif",
+          col.regions = list("#ff0055", "#b3e93e"))
 
 cartept
 
@@ -24,8 +26,9 @@ databv <- databv %>%
   st_sf
 
 cartebv <- databv %>% 
-  sample_n(500, replace = TRUE) %>% 
-  mapview(zcol="statut", col.regions = list("#d18975", "#d1ab75", "#8fd175"), alpha.regions = 0.3)
+  filter(code_espece == "ABL") %>% 
+  mapview(zcol = "statut",
+          alpha.regions = 0.3)
 
 cartebv
 mapview(bassins_simp)
@@ -36,4 +39,6 @@ mapview(bassins_simp)
 # =============================================================================
 
 mapview(bassins_simp, col.regions = "#8fd175") +
-  mapview(datapt, zcol="presence", cex = "effectif", col.regions = list("#ff0055", "#b3e93e"))
+  mapview(datapt, zcol="presence",
+          cex = "effectif",
+          col.regions = list("#ff0055", "#b3e93e"))

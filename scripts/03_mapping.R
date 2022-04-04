@@ -13,9 +13,9 @@ load(file = "processed_data/fish_and_geographical_data.RData")
 
 
 
-save(species_mapping, file = '../processed_data/species_mapping.RData')
-
-unique(data$code_espece)
+# save(species_mapping, file = '../processed_data/species_mapping.RData')
+# 
+# unique(data$code_espece)
 
 ###############
 ## table des stats sur les opérations
