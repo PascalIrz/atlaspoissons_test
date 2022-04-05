@@ -4,13 +4,12 @@ library(mapview)
 library(leaflet)
 library(leafem)
 
-
-
-load(file = "processed_data/fish_and_geographical_data.RData")
-
 # =================================================================
 #                             DATA
 # =================================================================
+
+load(file = "processed_data/fish_and_geographical_data.RData")
+
 data_abl <- data %>% 
   st_drop_geometry() %>% 
   filter(code_espece == "ABL")
@@ -42,7 +41,7 @@ ui <- fluidPage(
               list(`Able de Heckel` = map_abh, Ablette = map_abl)),
   
   hr(),
-  fluidRow(box(leafletOutput("map"))))
+  fluidRow(box(title = "Fish map", leafletOutput("map"))))
 
 server <- function(input, output) {
   
