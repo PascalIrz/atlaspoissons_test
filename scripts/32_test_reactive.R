@@ -52,7 +52,7 @@ ui <- fluidPage(
   
   selectInput("select",
               "Select smth",
-              list(`Able de Heckel` = map_abh, Ablette = map_abl)),
+              choices = unique(data$code_espece)),
   
   hr(),
   fluidRow(box(title = "Fish map", leafletOutput("map"))))

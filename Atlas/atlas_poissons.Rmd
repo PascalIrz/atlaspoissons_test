@@ -1,0 +1,250 @@
+---
+title: "Atlas des poissons de Bretagne"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include = FALSE, echo = FALSE}
+library(flexdashboard)
+library(plotly)
+library(shiny)
+library(mapview)
+library(leaflet)
+library(tidyverse)
+library(lubridate)
+library(sf)
+library(aspe)
+library(atlaspoissons)
+library(devtools)
+```
+
+
+```{r}
+load(file = "data_pour_appli.RData")
+```
+
+Sidebar {.sidebar data-width=350}
+=====================================
+
+```{r}
+
+selectInput("select",
+                        "Select smth",
+                        choices = unique(data$code_espece),
+                        selected = 1)
+
+                   
+
+```
+
+```{r}
+datapt <- donner_statut_sp_point(data)
+
+datapt <- datapt %>% 
+  left_join(data) %>% 
+  st_sf
+
+databv <- donner_statut_sp_bv(data)
+
+databv <- databv %>% 
+  left_join(bassins_simp) %>%
+  st_sf
+```
+
+
+# Carte de synthèse
+
+
+```{r, echo = FALSE}
+# Inspiration : https://www.infoworld.com/video/95368/how-to-boost-r-markdown-interactivity-with-runtime-shiny
+
+sliderInput(inputId = "annees",
+            label = "Suivi temporel",
+            min = min(data$annee),
+            max = max(data$annee),
+            value = 5,
+            round = TRUE)
+
+# sliderInput(inputId = "n_annees",
+#             label = "Nb d'années de données :",
+#             min = 2,
+#             max = max_annees,
+#             value = 5,
+#             round = TRUE)
+# 
+# pop_n_annees <- reactive({
+#   pop_data_filtre_gal() %>%
+#     group_by(pop_id) %>% 
+#       summarise(n_annees = n_distinct(annee)) %>% 
+#     ungroup %>% 
+#     filter(n_annees >= input$n_annees)
+#   })
+# 
+# pop_sf1 <- reactive({
+#   pop_sf %>% 
+#     filter(pop_id %in% pop_n_annees()$pop_id) %>% 
+#     filter(!is.na(sta_id)) %>% 
+#     left_join(y = pop_n_annees()) %>% 
+#     left_join(y = pop_data %>%
+#                 select(pop_id, pop_libelle)) %>% 
+#     distinct()
+#   })
+#   
+# n_pops <- reactive({
+#   pop_n_annees() %>%
+#     nrow()
+#   })
+```
+
+<!-- Nombre de sites (points) échantillonnés au moins `r reactive({input$n_annees})` années : `r reactive({n_pops()})` -->
+
+```{r, echo = FALSE}
+# solution trouvée sur https://stackoverflow.com/questions/36679944/mapview-for-shiny
+# m1 <- reactive({
+#   mapview::mapview(pop_sf1(),
+#                    cex = "n_annees",
+#                    row.numbers = FALSE,
+#                    layer.name = "Nb d'années de données",
+#                    map.type = c("OpenStreetMap",
+#                                 "CartoDB.Positron",
+#                                 "CartoDB.DarkMatter",
+#                                 "Esri.WorldImagery",
+#                                 "OpenTopoMap")) %>% 
+#     .@map
+#   })
+```
+
+
+```{r}
+    # zoom_level <- reactive({
+    #     if(is.null(input$m1_zoom)) {
+    #       zoom <- 6
+    #     } else {
+    #       zoom <- input$m1_zoom
+    #     }
+    #   zoom
+    # })
+```
+
+<!-- zoom_level : `r reactive({zoom_level()})` -->
+
+
+```{r, echo = FALSE}
+# solution trouvée sur https://stackoverflow.com/questions/36679944/mapview-for-shiny
+# leaflet::renderLeaflet({
+#   m1() %>%
+#     leaflet::setView(3, 46, zoom = 6)
+#   })
+```
+
+Si 'lon veut fixer l'emprise de la carte et le niveau de zoom quand on change les sélecteurs :
+https://stackoverflow.com/questions/48397262/in-shiny-how-to-fix-lock-leaflet-map-view-zoom-and-center
+
+
+# Méthodologie
+
+Appli publiée le `r format(Sys.time(), '%d %B %Y')`.
+
+Les données proviennent d'une sauvegarde de la base ASPE au 08 septembre 2021. La base est administrée par l'[Office Français de la Biodiversité](https://ofb.gouv.fr/). Elle comprend plus d'une centaine de tables.
+
+Les données ont été préparées pour l'appli au moyen du [packages R {aspe}](https://github.com/PascalIrz/aspe) conçu pour simplifier les traitements de la base. Ses fonctions sont regroupées par familles :
+
+- `imp_xx()` : importation des données
+- `mef_xx()` : mise en forme (jointures, sélections)
+- `geo_xx()` : traitements géographiques
+
+Les opérations classiques de nettoyage et mise en forme ont été réalisées avec le méta-package R `tidyverse`.
+
+La logique d'ensemble consiste à produire d'une part un `dataframe` contenant les données par opération de pêche associées au point de prélèvement et d'autre part un un objet géographique de classe `sf` permettant de représenter la localisation des points (cartographie).
+
+```{r, eval = FALSE, echo = TRUE}
+# chargement du package aspe (nécessite d'avoir au préalable devtools et Rtools)
+devtools::install_github("pascalirz/aspe")
+
+# activation des packages
+library(tidyverse)
+library(aspe)
+
+# chargement des données à partir de la sauvegarde (nécessite 16Go de RAM)
+imp_importer_dump_sql(fichier_dump = "raw_data/aspe.sql")
+
+# constitution du jeu de données au point (mieux géoréférencés que les stations)
+pop_data <- mef_creer_passerelle() %>% 
+  mef_ajouter_ipr() %>% 
+  mef_ajouter_ope_date() %>% 
+  mef_ajouter_type_protocole() %>% 
+  mef_ajouter_libelle() %>% 
+  mef_ajouter_lots() %>% 
+  mef_ajouter_objectif() %>% 
+  mef_ajouter_qualification()
+
+# sélection des colonnes d'intérêt et dédoublonnage
+pop_data <- pop_data %>% 
+  select(sta_id:ope_id,
+         ipr,
+         ope_date,
+         annee,
+         pro_libelle,
+         pop_libelle,
+         obj_libelle,
+         niq_libelle) %>% 
+  distinct()
+
+
+# collecte des coordonnées et systèmes de coordonnées (CRS) associés
+# suppression des points sans coordonnées (ou erreurs, codées -9 ou -9000)
+pop_data <- pop_data %>% 
+  aspe::geo_ajouter_coords_pop() %>% 
+  filter(!is.na(pop_coordonnees_x),
+         !is.na(pop_coordonnees_y),
+         !pop_coordonnees_x %in% c(-9, -9000, 0),
+         !pop_coordonnees_y %in% c(-9, -9000, 0)) 
+
+# collecte des données en WGS84
+pop_coords <- pop_data %>% 
+  aspe::geo_convertir_coords_df(var_x = pop_coordonnees_x,
+                                var_y = pop_coordonnees_y,
+                                var_crs_initial = typ_code_epsg,
+                                crs_sortie = 4326,
+                                var_id = pop_id) %>%
+  distinct()
+
+# ajout des coordonnées WGS84 au tableau des points 
+pop_data <- pop_data %>% 
+  left_join(y = pop_coords) %>% 
+  select(-(pop_coordonnees_x:typ_code_epsg)) # suppression des variables inutiles
+
+# Elimination des pts aberrants et tag Corse
+pop_data <- pop_data %>% 
+  filter(X < 9.7, X > -5.15, Y < 51.1, Y > 41.2) %>% 
+  mutate(en_corse = (X > 8.3),
+         sans_ipr = is.na(ipr))
+
+# passage en objet géographique de classe sf
+pop_sf <- pop_data %>%
+  select(pop_id, X, Y, sta_id, ope_date) %>% 
+  sf::st_as_sf(coords = c("X", "Y"), crs = 4326) %>% 
+  distinct()
+
+# dédoublonnage
+pop_sf <- pop_sf %>% 
+  select(-ope_date) %>% 
+  distinct()
+
+# sauvegarde
+save(pop_sf,
+     pop_data,
+     file = "notes/data_pour_appli.RData")
+```
+
+
+
+
+
+
+
+
+
