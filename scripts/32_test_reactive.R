@@ -59,7 +59,7 @@ ui <- fluidPage(
 
 server <- function(input, output) {
   
-  selection <- reactive(input$select)
+  selection <- reactive(as.data.frame(input$select))
   
   output$map = renderLeaflet({ selection() })
 }
