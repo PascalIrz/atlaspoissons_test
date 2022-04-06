@@ -3,6 +3,12 @@ library(shinydashboard)
 library(mapview)
 library(leaflet)
 library(leafem)
+library(tidyverse)
+library(lubridate)
+library(sf)
+library(aspe)
+library(atlaspoissons)
+library(devtools)
 
 # =================================================================
 #                             DATA
