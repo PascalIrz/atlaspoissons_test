@@ -67,13 +67,6 @@ sliderInput(inputId = "annees",
             max = max(data$annee),
             value = 5,
             round = TRUE)
-
-# sliderInput(inputId = "n_annees",
-#             label = "Nb d'années de données :",
-#             min = 2,
-#             max = max_annees,
-#             value = 5,
-#             round = TRUE)
 # 
 # pop_n_annees <- reactive({
 #   pop_data_filtre_gal() %>%
