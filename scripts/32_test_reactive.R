@@ -9,6 +9,14 @@ library(leafem)
 # =================================================================
 
 load(file = "processed_data/fish_and_geographical_data.RData")
+datapt <- donner_statut_sp_point(data)
+datapt <- datapt %>% 
+  left_join(data) %>% 
+  st_sf
+databv <- donner_statut_sp_bv(data)
+databv <- databv %>% 
+  left_join(bassins_simp) %>%
+  st_sf
 
 data_abl <- data %>% 
   st_drop_geometry() %>% 
@@ -45,9 +53,9 @@ ui <- fluidPage(
 
 server <- function(input, output) {
   
-  data <- reactive(input$map)
+  selection <- reactive(input$select)
   
-  output$select = renderLeaflet({ data() })
+  output$map = renderLeaflet({ selection() })
 }
 
 shinyApp(ui,server)
