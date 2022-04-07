@@ -234,12 +234,16 @@ gdata::keep(wama,
             aspe,
             agence,
             bassins,
+            ref_espece,
             sure = T)
 
 #Liste des espèces à supprimer
 especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
                          "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC", "GRV",
                          "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX")
+
+ref_espece <- ref_espece %>% 
+  rename(code_espece = esp_code_alternatif)
 
 data <- bind_rows(wama,
                   sd,
@@ -260,6 +264,7 @@ data <- bind_rows(wama,
   group_by_at(vars(-effectif)) %>% 
   summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
   ungroup()%>% 
+  left_join(y = ref_espece %>% select(code_espece, esp_nom_commun)) %>% 
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326) %>%
   filter(annee > 2010 |
@@ -398,7 +403,20 @@ n_annees_par_station <- data %>%
     summarise(n_peches = n_distinct(annee)) %>% 
   ungroup()
 
+datapt <- donner_statut_sp_point(data)
+
+datapt <- datapt %>% 
+  left_join(data) %>% 
+  st_sf
+
+databv <- donner_statut_sp_bv(data)
+
+databv <- databv %>% 
+  left_join(bassins_simp) %>%
+  st_sf
+
 
 
 save.image(file = "processed_data/fish_and_geographical_data.RData")
 
+save(datapt,databv,file = "Atlas/donnees_appli.RData")
