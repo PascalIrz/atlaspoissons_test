@@ -419,4 +419,4 @@ databv <- databv %>%
 
 save.image(file = "processed_data/fish_and_geographical_data.RData")
 
-save(datapt,databv,file = "Atlas/donnees_appli.RData")
+save(datapt,databv,file = "atlas/donnees_appli.RData")
