@@ -37,7 +37,8 @@ bassins <- bassins %>%
   st_transform(crs = 4326) %>%
   rename(code_exutoire = IDD) %>%
   filter(TRUE) %>% 
-  st_make_valid()
+  st_make_valid() %>% 
+  mutate_if(is.character, as.factor)
 
 # save(bassins, file = "processed_data/bassins.RData")
 # load("processed_data/bassins.RData")
