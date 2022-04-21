@@ -39,19 +39,65 @@ data <- data %>%
   filter(annee > 2010 |
            is.na(annee))   # suppression des données anciennes de aspe / wama
 
-especes_a_garder <- data %>% 
+# attribution sur l'ensemble du jdd des bassins
+presence_pt <- data %>%
+  select(-code_exutoire) %>% 
+  st_as_sf(coords = c("x_wgs84", "y_wgs84"), crs = 4326) %>% 
+  sf::st_join(bassins %>% 
+                select(code_exutoire, geometry)) %>%
+  filter(!is.na(code_exutoire)) # au cas où il resterait des stations hors des bassins
+
+stations_geo <- presence_pt %>% 
+  select(code_station,
+         code_exutoire,
+         localisation) %>% 
+  distinct()
+
+presence_pt <- presence_pt %>% 
+  st_drop_geometry() %>% 
+  select(-code_exutoire,
+         -localisation) %>% 
+  distinct() %>% 
+  mutate_at(vars(esp_nom_commun, code_espece), as.factor) %>% 
+  droplevels()
+
+
+especes_a_garder <- presence_pt %>% 
 #  st_drop_geometry() %>% 
   group_by(code_espece) %>% 
     summarise(effectif = sum(effectif)) %>% 
   filter(effectif > 0) %>% 
   pull(code_espece)
 
-data2 <- data %>% 
-  filter(code_espece %in% especes_a_garder) %>% 
-  select(-esp_nom_commun) %>% 
+presence_pt <- presence_pt %>% 
+  filter(code_espece %in% especes_a_garder,
+         effectif > 0)
+
+# caractérisation des pêches selon le protocole en inventaire ou non
+peches_inventaires <- data %>% 
+  group_by(type_peche) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  mutate(inventaire = case_when(
+    str_detect(type_peche, "ndice") ~ FALSE,
+    str_detect(type_peche, "truite") ~ FALSE,
+    str_detect(type_peche, "IA ") ~ FALSE,
+    str_detect(type_peche, "partiel") ~ FALSE,
+    TRUE ~ TRUE
+  ))
+
+
+absences_pt <- data %>% 
+  ajouter_absence() %>% 
+  filter(effectif == 0) %>% 
+  select(names(presence_pt)) %>% 
+  left_join(peches_inventaires %>% select(-n))
+
+test <- data %>%
+  select(-esp_nom_commun) %>%
   pivot_wider(names_from = "code_espece",
               values_from = "effectif",
-              values_fill = 0) %>% 
+              values_fill = 0) %>%
   pivot_longer(cols = ABH:LPX,
                names_to = "code_espece",
                values_to = "effectif")
@@ -64,31 +110,22 @@ data2 <- data %>%
 # #  st_sf()
 
 
-# compter les pres et abs par esp
-
-prov <- data2 %>% 
-#  st_drop_geometry() %>% 
-  mutate(presence = effectif > 0) %>% 
-  group_by(code_espece, annee, presence) %>% 
-    tally() %>% 
-  pivot_wider(names_from = presence,
-              values_from = n) %>% 
-  mutate(somme = `TRUE` + `FALSE`)
-
-
-prov2 <- data %>% 
-  st_drop_geometry() %>% 
-  group_by(annee) %>% 
-    summarise(n_ope = n_distinct(ope_id))
+# # compter les pres et abs par esp par an
+# prov <- data %>% 
+# #  st_drop_geometry() %>% 
+#   mutate(presence = ifelse(effectif > 0,
+#                            "presence",
+#                            "absence")) %>% 
+#   group_by(code_espece, annee, presence) %>% 
+#     tally() %>% 
+#   pivot_wider(names_from = presence,
+#               values_from = n,
+#               values_fill = 0) %>% 
+#   mutate(somme = presence + absence)
 
 
 
-# attribution sur l'ensemble du jdd des bassins
-data <- data %>%
-  select(-code_exutoire) %>% 
-  sf::st_join(bassins %>% 
-                select(code_exutoire, geometry)) %>%
-  filter(!is.na(code_exutoire)) # au cas où il resterait des stations hors des bassins
+
 
 # objet géo des stations
 pts_geo <- data %>%
