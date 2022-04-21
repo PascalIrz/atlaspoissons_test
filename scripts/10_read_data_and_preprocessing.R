@@ -218,4 +218,5 @@ data <- bind_rows(wama,
 
 save(data,
      ref_espece,
+     bassins,
      file = "processed_data/data.RData")
