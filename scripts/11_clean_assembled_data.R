@@ -28,7 +28,8 @@ data <- data %>%
     code_station
   )) %>%
   mutate(date_peche = as.Date(date_peche),
-         ope_id = paste0(code_station, date_peche)) %>%
+         ope_id = paste0(code_station, date_peche),
+         annee = as.integer(annee)) %>%
   mutate_if(is.character, as.factor) %>%
   group_by_at(vars(-effectif)) %>% 
     summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
@@ -58,7 +59,7 @@ especes_a_garder <- pt_presence %>%
 pt_presence <- pt_presence %>% 
   filter(code_espece %in% especes_a_garder,
          effectif > 0) %>% 
-  mutate(statut = "Présence")
+  mutate(statut = "Présent")
 
 # ------------------------------
 # absences au point
@@ -82,8 +83,8 @@ pt_absence <- data %>%
   filter(effectif == 0) %>% 
   left_join(peches_inventaires %>% select(-n)) %>% 
   mutate(statut = case_when(
-    inventaire ~ "Absence",
-    TRUE ~ "Inconnu"
+    inventaire ~ "Absent",
+    TRUE ~ "Non détecté"
   )) %>%
   select(names(pt_presence))
 
@@ -120,7 +121,7 @@ pt_geo <- data %>%
 # ---------------------------------------------
 # Donnée au bassin
 
-# attribution sur l'ensemble du jdd des bassins
+# attribution sur l'ensemble du jdd des bassins (code_exutoire)
 bv_data <- pt_data %>%
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326) %>% 
@@ -129,32 +130,57 @@ bv_data <- pt_data %>%
   filter(!is.na(code_exutoire)) %>%  # au cas où il resterait des stations hors des bassins
   sf::st_drop_geometry()
 
-
+# détermination du statut par bassin x espèce chaque année
 bv_data <- bv_data %>% 
   group_by(code_exutoire, code_espece, annee) %>% 
-    summarise(statut = max(as.integer(statut))) %>% 
-  ungroup()
+    summarise(n_abs = sum(statut == "Absent"),
+              n_pres = sum(statut == "Présent"),
+              n_n_d = sum(statut == "Non détecté")) %>% 
+  ungroup() %>% 
+  mutate(statut = case_when(
+    n_pres > 0 ~ "Présent",
+    n_pres == 0 & n_abs > 0 ~ "Absent",
+    TRUE ~ "Non détecté"
+  ))
 
+# simplification du découpage en bassins
 bv_simp_geo <- bassins %>% 
   select(code_exutoire, toponyme, geometry) %>% 
-  st_simplify(dTolerance = 50,
+  st_simplify(dTolerance = 20,
               preserveTopology = T)
 
 mon_espece <- "GAR"
 
-bv_simp_geo %>% 
-  left_join(bv_data) %>% 
-  filter(code_espece == mon_espece) %>% 
-  group_by(code_exutoire, toponyme) %>% 
-  summarise(statut = max(statut)) %>%  
+bv_map_data <- bv_simp_geo %>% 
+ st_drop_geometry() %>%
+  left_join(bv_data) %>%
+  filter(code_espece == mon_espece) %>%
+  group_by(code_exutoire, toponyme, code_espece) %>%
+  summarise(n_abs = sum(statut == "Absent"),
+            n_pres = sum(statut == "Présent"),
+            n_n_d = sum(statut == "Non détecté")) %>%
+  ungroup() %>%
   mutate(statut = case_when(
-    statut == 1 ~ "Absence",
-    statut == 2 ~ "Non détecté",
-    statut == 3 ~ "Présence",
-    TRUE ~ NA_character_),
-         statut = as.factor(statut)) %>% 
-  mapview(zcol = "statut",
-          layer.name = mon_espece)
+    n_pres > 0 ~ "Présent",
+    n_pres == 0 & n_abs > 0 ~ "Absent",
+    TRUE ~ "Non détecté"
+  ))
+
+prov <- bv_simp_geo %>% 
+  left_join(bv_map_data) %>% 
+  mutate(statut = ifelse(is.na(statut), "Non prospecté", statut),
+         statut = as.factor(statut),
+         statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
+  
+
+mapview(prov,
+        zcol = "statut",
+        layer.name = mon_espece,
+        map.types = c("OpenStreetMap", "Esri.WorldImagery"),
+        col.regions = c("green", "red", "pink", "grey50"))
+  
+
+
 
 
 
