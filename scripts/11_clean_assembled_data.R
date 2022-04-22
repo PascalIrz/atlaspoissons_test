@@ -33,31 +33,18 @@ data <- data %>%
   group_by_at(vars(-effectif)) %>% 
     summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
   ungroup()%>% 
-  # left_join(y = ref_espece %>%
-  #             select(code_espece, esp_nom_commun)) %>% 
   filter(annee > 2010 | # suppression des données anciennes de aspe / wama
          is.na(annee)) %>% 
   droplevels()
 
-# attribution sur l'ensemble du jdd des bassins
-pt_presence <- data %>%
-  select(-code_exutoire) %>% 
-  st_as_sf(coords = c("x_wgs84", "y_wgs84"),
-           crs = 4326) %>% 
-  sf::st_join(bassins %>% 
-                select(code_exutoire, geometry)) %>%
-  filter(!is.na(code_exutoire)) # au cas où il resterait des stations hors des bassins
-
 # ------------------------------
 # présences au point
 # ------------------------------
-pt_presence <- pt_presence %>% 
-  st_drop_geometry() %>% 
+pt_presence <- data %>% 
   select(-code_exutoire,
          -localisation) %>% 
   distinct() %>% 
-  mutate_at(vars(code_espece),
-            as.factor) %>% 
+  mutate(code_espece = as.factor(code_espece)) %>% 
   droplevels()
 
 # suppression des espèces jamais présentes
@@ -100,6 +87,9 @@ pt_absence <- data %>%
   )) %>%
   select(names(pt_presence))
 
+# ------------------------------
+# assemblage des données au point
+# ------------------------------
 pt_data <- rbind(pt_presence, pt_absence) %>% 
   mutate(statut = as.factor(statut)) %>% 
   droplevels() %>% 
@@ -111,33 +101,79 @@ rm(pt_presence, pt_absence)
   
   
 
-bv_simp_geo <- bassins %>% 
-  select(code_exutoire, toponyme, geometry)
+# bv_simp_geo <- bassins %>% 
+#   select(code_exutoire, toponyme, geometry)
 
 
 # création de l'objet sf des points
-pt_geo <- pt_presence %>% 
+pt_geo <- data %>% 
   select(code_station,
          code_exutoire,
-         localisation) %>% 
-  distinct()
+         localisation,
+         x_wgs84,
+         y_wgs84) %>% 
+  distinct() %>% 
+  st_as_sf(coords = c("x_wgs84", "y_wgs84"),
+           crs = 4326)
 
 
 # ---------------------------------------------
 # Donnée au bassin
 
-bv_data <- pt_geo %>% 
-  left_join(pt_data)
+# attribution sur l'ensemble du jdd des bassins
+bv_data <- pt_data %>%
+  st_as_sf(coords = c("x_wgs84", "y_wgs84"),
+           crs = 4326) %>% 
+  sf::st_join(bassins %>% 
+              select(code_exutoire)) %>%
+  filter(!is.na(code_exutoire)) %>%  # au cas où il resterait des stations hors des bassins
+  sf::st_drop_geometry()
 
-# data_bv <- data_bv %>% 
-#   left_join(bv_simp_geo) %>%
-#   st_sf()
 
+bv_data <- bv_data %>% 
+  group_by(code_exutoire, code_espece, annee) %>% 
+    summarise(statut = max(as.integer(statut))) %>% 
+  ungroup()
 
 bv_simp_geo <- bassins %>% 
   select(code_exutoire, toponyme, geometry) %>% 
   st_simplify(dTolerance = 50,
               preserveTopology = T)
+
+mon_espece <- "GAR"
+
+bv_simp_geo %>% 
+  left_join(bv_data) %>% 
+  filter(code_espece == mon_espece) %>% 
+  group_by(code_exutoire, toponyme) %>% 
+  summarise(statut = max(statut)) %>%  
+  mutate(statut = case_when(
+    statut == 1 ~ "Absence",
+    statut == 2 ~ "Non détecté",
+    statut == 3 ~ "Présence",
+    TRUE ~ NA_character_),
+         statut = as.factor(statut)) %>% 
+  mapview(zcol = "statut",
+          layer.name = mon_espece)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 save.image(file = "processed_data/fish_and_geographical_data.RData")
 
