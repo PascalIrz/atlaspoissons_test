@@ -149,7 +149,7 @@ bv_simp_geo <- bassins %>%
   st_simplify(dTolerance = 20,
               preserveTopology = T)
 
-mon_espece <- "GAR"
+mon_espece <- "VAX"
 
 bv_map_data <- bv_simp_geo %>% 
  st_drop_geometry() %>%
