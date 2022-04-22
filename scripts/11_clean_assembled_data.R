@@ -117,7 +117,6 @@ pt_geo <- data %>%
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326)
 
-
 # ---------------------------------------------
 # Donnée au bassin
 
@@ -149,7 +148,7 @@ bv_simp_geo <- bassins %>%
   st_simplify(dTolerance = 20,
               preserveTopology = T)
 
-mon_espece <- "VAX"
+mon_espece <- "PER"
 
 bv_map_data <- bv_simp_geo %>% 
  st_drop_geometry() %>%
@@ -177,10 +176,18 @@ mapview(prov,
         zcol = "statut",
         layer.name = mon_espece,
         map.types = c("OpenStreetMap", "Esri.WorldImagery"),
-        col.regions = c("green", "red", "pink", "grey50"))
+        col.regions = c("green", "red", "pink", "grey50"),
+        alpha.regions = 0.5) + 
+  mapview(pt_data_geo,
+          zcol = "statut"
+          # layer.name = mon_espece
+          )
   
 
-
+pt_data_geo <- pt_data %>% 
+  left_join(pt_geo) %>% 
+  filter(code_espece == mon_espece) %>% 
+  st_sf
 
 
 
