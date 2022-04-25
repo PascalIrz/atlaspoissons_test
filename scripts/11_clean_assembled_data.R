@@ -166,7 +166,7 @@ bv_data <- bv_data %>%
 
 
 
-mon_espece <- "PER"
+mon_espece <- "LOF"
 
 bv_map_data <- bv_simp_geo %>% 
  st_drop_geometry() %>%
