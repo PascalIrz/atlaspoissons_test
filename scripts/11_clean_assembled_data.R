@@ -170,7 +170,11 @@ prov <- bv_simp_geo %>%
   mutate(statut = ifelse(is.na(statut), "Non prospecté", statut),
          statut = as.factor(statut),
          statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
-  
+
+pt_data_geo <- pt_data %>% 
+  left_join(pt_geo) %>% 
+  filter(code_espece == mon_espece) %>% 
+  st_sf
 
 mapview(prov,
         zcol = "statut",
@@ -179,15 +183,9 @@ mapview(prov,
         col.regions = c("green", "red", "pink", "grey50"),
         alpha.regions = 0.5) + 
   mapview(pt_data_geo,
-          zcol = "statut"
-          # layer.name = mon_espece
-          )
-  
+          zcol = "statut")
 
-pt_data_geo <- pt_data %>% 
-  left_join(pt_geo) %>% 
-  filter(code_espece == mon_espece) %>% 
-  st_sf
+
 
 
 
