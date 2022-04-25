@@ -17,6 +17,14 @@ especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
 
 ref_espece <- ref_espece %>% 
   rename(code_espece = esp_code_alternatif)
+
+# simplification du découpage en bassins
+bv_simp_geo <- bassins %>% 
+  select(code_exutoire, toponyme, geometry) %>% 
+  st_simplify(dTolerance = 20,
+              preserveTopology = T)
+
+
 # ------------------------------
 # mise en forme du jeu de données au point
 # ------------------------------
@@ -117,6 +125,20 @@ pt_geo <- data %>%
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326)
 
+
+pt_data_geo <- pt_data %>% 
+  group_by(code_station, code_espece) %>% 
+  summarise(n_an_abs = sum(statut == "Absent"),
+            n_an_pres = sum(statut == "Présent"),
+            n_an_n_d = sum(statut == "Non détecté")) %>%
+  ungroup() %>%
+  mutate(statut = case_when(
+    n_an_pres > 0 ~ "Présent",
+    n_an_pres == 0 & n_an_abs > 0 ~ "Absent",
+    TRUE ~ "Non détecté"
+  )) %>% 
+  left_join(pt_geo)
+
 # ---------------------------------------------
 # Donnée au bassin
 
@@ -126,7 +148,7 @@ bv_data <- pt_data %>%
            crs = 4326) %>% 
   sf::st_join(bassins %>% 
               select(code_exutoire)) %>%
-  filter(!is.na(code_exutoire)) %>%  # au cas où il resterait des stations hors des bassins
+#  filter(!is.na(code_exutoire)) %>%  # au cas où il resterait des stations hors des bassins
   sf::st_drop_geometry()
 
 # détermination du statut par bassin x espèce chaque année
@@ -142,11 +164,7 @@ bv_data <- bv_data %>%
     TRUE ~ "Non détecté"
   ))
 
-# simplification du découpage en bassins
-bv_simp_geo <- bassins %>% 
-  select(code_exutoire, toponyme, geometry) %>% 
-  st_simplify(dTolerance = 20,
-              preserveTopology = T)
+
 
 mon_espece <- "PER"
 
@@ -165,25 +183,29 @@ bv_map_data <- bv_simp_geo %>%
     TRUE ~ "Non détecté"
   ))
 
-prov <- bv_simp_geo %>% 
+bv_map_data_geo <- bv_simp_geo %>% 
   left_join(bv_map_data) %>% 
   mutate(statut = ifelse(is.na(statut), "Non prospecté", statut),
          statut = as.factor(statut),
          statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
 
-pt_data_geo <- pt_data %>% 
-  left_join(pt_geo) %>% 
+
+
+pt_data_geo_esp <- pt_data_geo %>% 
   filter(code_espece == mon_espece) %>% 
   st_sf
 
-mapview(prov,
+mapview(bv_map_data_geo,
         zcol = "statut",
         layer.name = mon_espece,
         map.types = c("OpenStreetMap", "Esri.WorldImagery"),
         col.regions = c("green", "red", "pink", "grey50"),
         alpha.regions = 0.5) + 
-  mapview(pt_data_geo,
-          zcol = "statut")
+  mapview(pt_data_geo_esp,
+          zcol = "statut",
+          col.regions = c("red", "pink", "green"),
+          cex = 4,
+          legend = FALSE)
 
 
 
