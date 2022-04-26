@@ -137,7 +137,8 @@ pt_data_geo <- pt_data %>%
     n_an_pres == 0 & n_an_abs > 0 ~ "Absent",
     TRUE ~ "Non détecté"
   )) %>% 
-  left_join(pt_geo)
+  left_join(pt_geo) %>% 
+  filter(!is.na(code_exutoire)) 
 
 # ---------------------------------------------
 # Donnée au bassin
@@ -230,8 +231,9 @@ mapview(bv_map_data_geo,
 
 save.image(file = "processed_data/fish_and_geographical_data.RData")
 
-save(data_pt,
-     data_bv,
-     pts_geo,
-     bv_simp_geo,
-     file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
+save(pt_data,
+     pt_data_geo,
+     pt_data_geo_esp,
+     bv_map_data,
+     bv_map_data_geo,
+     file = "../atlas_poissons_app/atlas/donnees_appli.RData")
