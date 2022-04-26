@@ -28,6 +28,11 @@ bv_simp_geo <- bassins %>%
 # ------------------------------
 # mise en forme du jeu de données au point
 # ------------------------------
+
+# Test: enlever les points à l'extérieur des bassins (sans succès)
+# data <- data %>% 
+#   filter(!geometry == bassins$geometry)
+
 data <- data %>%
   atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
   mutate(code_station = ifelse(
@@ -137,8 +142,7 @@ pt_data_geo <- pt_data %>%
     n_an_pres == 0 & n_an_abs > 0 ~ "Absent",
     TRUE ~ "Non détecté"
   )) %>% 
-  left_join(pt_geo) %>% 
-  filter(!is.na(code_exutoire)) 
+  left_join(pt_geo)
 
 # ---------------------------------------------
 # Donnée au bassin
@@ -193,7 +197,7 @@ bv_map_data_geo <- bv_simp_geo %>%
 
 
 pt_data_geo_esp <- pt_data_geo %>% 
-  filter(code_espece == mon_espece) %>% 
+  filter(code_espece == mon_espece) %>%  
   st_sf
 
 mapview(bv_map_data_geo,
