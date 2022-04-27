@@ -193,13 +193,8 @@ bv_map_data_geo <- bv_simp_geo %>%
 
 
 
-<<<<<<< HEAD
 pt_data_geo_esp <- pt_data_geo %>%
   filter(code_espece == mon_espece) %>%
-=======
-pt_data_geo_esp <- pt_data_geo %>% 
-  filter(code_espece == mon_espece) %>%  
->>>>>>> 65a681e20a19d24f6700cbe244d53d5e0b0a1200
   st_sf
 
 mapview(bv_map_data_geo,
