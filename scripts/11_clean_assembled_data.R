@@ -28,6 +28,11 @@ bv_simp_geo <- bassins %>%
 # ------------------------------
 # mise en forme du jeu de données au point
 # ------------------------------
+
+# Test: enlever les points à l'extérieur des bassins (sans succès)
+# data <- data %>% 
+#   filter(!geometry == bassins$geometry)
+
 data <- data %>%
   atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
   mutate(code_coords = paste(round(x_wgs84, 6), round(y_wgs84, 6), sep = "_")) %>%
@@ -163,7 +168,7 @@ bv_data <- pt_data %>%
 
 
 
-mon_espece <- "PER"
+mon_espece <- "LOF"
 
 bv_map_data <- bv_simp_geo %>% 
   st_drop_geometry() %>%
@@ -188,8 +193,13 @@ bv_map_data_geo <- bv_simp_geo %>%
 
 
 
+<<<<<<< HEAD
 pt_data_geo_esp <- pt_data_geo %>%
   filter(code_espece == mon_espece) %>%
+=======
+pt_data_geo_esp <- pt_data_geo %>% 
+  filter(code_espece == mon_espece) %>%  
+>>>>>>> 65a681e20a19d24f6700cbe244d53d5e0b0a1200
   st_sf
 
 mapview(bv_map_data_geo,
@@ -227,8 +237,9 @@ mapview(bv_map_data_geo,
 
 save.image(file = "processed_data/fish_and_geographical_data.RData")
 
-save(data_pt,
-     data_bv,
-     pts_geo,
-     bv_simp_geo,
-     file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
+save(pt_data,
+     pt_data_geo,
+     pt_data_geo_esp,
+     bv_map_data,
+     bv_map_data_geo,
+     file = "../atlas_poissons_app/atlas/donnees_appli.RData")
