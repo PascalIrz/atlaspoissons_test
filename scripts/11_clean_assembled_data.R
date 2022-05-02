@@ -145,7 +145,7 @@ pt_geo <- coords %>%
 
 
 pt_data_geo <- pt_data %>% 
-  group_by(code_coords, code_exutoire, code_espece) %>% 
+  group_by(code_coords, code_exutoire, code_espece, code_station) %>% 
   summarise(n_an_abs = sum(statut == "Absent"),
             n_an_pres = sum(statut == "Présent"),
             n_an_n_d = sum(statut == "Non détecté")) %>%
