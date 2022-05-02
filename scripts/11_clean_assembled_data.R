@@ -4,6 +4,7 @@ library(sf)
 library(mapview)
 library(aspe)
 library(atlaspoissons)
+library(readxl)
 
 rm(list = ls())
 
@@ -32,6 +33,14 @@ bv_simp_geo <- bassins %>%
 # Test: enlever les points à l'extérieur des bassins (sans succès)
 # data <- data %>% 
 #   filter(!geometry == bassins$geometry)
+
+noms_communs <- read_xls("raw_data/Codes espèces cemagref.xls") %>% 
+  select(espoi, esnom) %>%
+  rename(code_espece = espoi,
+         esp_nom_commun = esnom) 
+
+data <- data %>% 
+  left_join(noms_communs)
 
 data <- data %>%
   atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
