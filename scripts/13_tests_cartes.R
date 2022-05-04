@@ -76,11 +76,12 @@ bv_geo <- bv_geo %>%
 # ==============================================================================
 # Visualisation de la carte
 
+#La carte fonctionne, cependant les bv non prospectés n'apparaissent pas
 mapview(bv_geo,
         zcol = "statut",
         layer.name = mon_espece,
         map.types = c("OpenStreetMap", "Esri.WorldImagery"),
-        col.regions = c("red", "pink", "green"),
+        col.regions = c("red", "pink", "green", "grey40"),
         alpha.regions = 0.5) + 
   mapview(pt_g,
           zcol = "statut",
