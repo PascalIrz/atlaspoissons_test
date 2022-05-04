@@ -6,14 +6,12 @@ rm(list = ls())
 
 load(file = "../atlas_poissons_app/atlas/donnees_appli.RData")
 
-mon_espece <- "Lamproie marine"
-premiere_annee <- 2021
-derniere_annee <- 2018
+# ==============================================================================
+# Assemblage des données
 
+#######################
+#Pour les bv
 
-# Ici, ça enlève 3/4 des données, on se retrouve avec 40124 observations
-# Alors que dans bv_map_data, il y a 199004 observations
-# Le mutate ne fonctionne donc pas, les bv non prospectés n'apparaissent pas
 bv <- bv_map_data %>% 
   group_by(code_exutoire, code_espece, annee, esp_nom_commun) %>%
   summarise(n_abs = sum(statut == "Absent"),
@@ -27,13 +25,18 @@ bv <- bv_map_data %>%
     TRUE ~ "Non détecté"
   )) 
 
+# Le mutate ne fonctionne donc pas, les bv non prospectés n'apparaissent pas
 bv %>% 
   mutate(statut = ifelse(is.na(statut), "Non prospecté", statut),
          statut = as.factor(statut),
          statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
 
-bv %>% 
-  left_join(bv_map_geo)
+bv_geo <- bv %>% 
+  left_join(bv_map_geo) %>% 
+  st_sf
+
+#######################
+# Pour les pts
 
 pt <- pt_data%>%
   group_by(code_coords, code_exutoire, esp_nom_commun, code_espece, code_station, annee) %>%
@@ -51,16 +54,28 @@ pt_g <- pt_geo %>%
   left_join(pt)   %>% 
   st_sf
 
+
+# ==============================================================================
+# Filtration des données pour choisir espèces et années
+
+mon_espece <- "Lamproie marine"
+premiere_annee <- 2018
+derniere_annee <- 2018
+
 pt_g <- pt_g %>% 
   filter(esp_nom_commun == mon_espece,
        annee >= premiere_annee,
        annee <= derniere_annee)
 
-bv_geo <- bv %>%
+bv_geo <- bv_geo %>%
   filter(esp_nom_commun == mon_espece,
          annee >= premiere_annee,
          annee <= derniere_annee)
-  
+
+
+# ==============================================================================
+# Visualisation de la carte
+
 mapview(bv_geo,
         zcol = "statut",
         layer.name = mon_espece,

@@ -197,8 +197,7 @@ bv_map_data <- bv_simp_geo %>%
 #   ))
 
 bv_map_data_geo <- bv_simp_geo %>% 
-  left_join(bv_map_data)
-%>%
+  left_join(bv_map_data)%>%
   mutate(statut = ifelse(is.na(statut), "Non prospecté", statut),
          statut = as.factor(statut),
          statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
