@@ -4,6 +4,7 @@ library(sf)
 library(mapview)
 library(aspe)
 library(atlaspoissons)
+library(readxl)
 
 rm(list = ls())
 
@@ -32,6 +33,14 @@ bv_simp_geo <- bassins %>%
 # Test: enlever les points à l'extérieur des bassins (sans succès)
 # data <- data %>% 
 #   filter(!geometry == bassins$geometry)
+
+noms_communs <- read_xls("raw_data/Codes espèces cemagref.xls") %>% 
+  select(espoi, esnom) %>%
+  rename(code_espece = espoi,
+         esp_nom_commun = esnom) 
+
+# data <- data %>% 
+#   left_join(noms_communs)
 
 data <- data %>%
   atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
@@ -104,6 +113,9 @@ pt_data <- rbind(pt_presence, pt_absence) %>%
   droplevels() %>% 
   select(-date_peche, -ope_id)
 
+pt_data <- pt_data %>% 
+  left_join(noms_communs)
+
 rm(pt_presence, pt_absence)
 
 
@@ -136,16 +148,16 @@ pt_geo <- coords %>%
 
 
 pt_data_geo <- pt_data %>% 
-  group_by(code_coords, code_exutoire, code_espece) %>% 
-  summarise(n_an_abs = sum(statut == "Absent"),
-            n_an_pres = sum(statut == "Présent"),
-            n_an_n_d = sum(statut == "Non détecté")) %>%
-  ungroup() %>%
-  mutate(statut = case_when(
-    n_an_pres > 0 ~ "Présent",
-    n_an_pres == 0 & n_an_abs > 0 ~ "Absent",
-    TRUE ~ "Non détecté"
-  )) %>% 
+  group_by(code_coords, code_exutoire, esp_nom_commun, code_espece, code_station, annee) %>% 
+  # summarise(n_an_abs = sum(statut == "Absent"),
+  #           n_an_pres = sum(statut == "Présent"),
+  #           n_an_n_d = sum(statut == "Non détecté")) %>%
+  # ungroup() %>%
+  # mutate(statut = case_when(
+  #   n_an_pres > 0 ~ "Présent",
+  #   n_an_pres == 0 & n_an_abs > 0 ~ "Absent",
+  #   TRUE ~ "Non détecté"
+  # )) %>% 
   left_join(pt_geo) %>% 
   st_sf
 
@@ -155,65 +167,52 @@ pt_data_geo <- pt_data %>%
 
 # détermination du statut par bassin x espèce chaque année
 bv_data <- pt_data %>% 
-  group_by(code_exutoire, code_espece, annee) %>% 
-    summarise(n_abs = sum(statut == "Absent"),
-              n_pres = sum(statut == "Présent"),
-              n_n_d = sum(statut == "Non détecté")) %>% 
-  ungroup() %>% 
-  mutate(statut = case_when(
-    n_pres > 0 ~ "Présent",
-    n_pres == 0 & n_abs > 0 ~ "Absent",
-    TRUE ~ "Non détecté"
-  ))
+  group_by(code_exutoire, code_espece, annee, esp_nom_commun) 
+# %>% 
+#     summarise(n_abs = sum(statut == "Absent"),
+#               n_pres = sum(statut == "Présent"),
+#               n_n_d = sum(statut == "Non détecté")) %>% 
+#   ungroup() %>% 
+#   mutate(statut = case_when(
+#     n_pres > 0 ~ "Présent",
+#     n_pres == 0 & n_abs > 0 ~ "Absent",
+#     TRUE ~ "Non détecté"
+#   ))
 
 
-
-mon_espece <- "LOF"
 
 bv_map_data <- bv_simp_geo %>% 
   st_drop_geometry() %>%
   left_join(bv_data) %>%
-  filter(code_espece == mon_espece) %>%
-  group_by(code_exutoire, toponyme, code_espece) %>%
-  summarise(n_abs = sum(statut == "Absent"),
-            n_pres = sum(statut == "Présent"),
-            n_n_d = sum(statut == "Non détecté")) %>%
-  ungroup() %>%
-  mutate(statut = case_when(
-    n_pres > 0 ~ "Présent",
-    n_pres == 0 & n_abs > 0 ~ "Absent",
-    TRUE ~ "Non détecté"
-  ))
+  group_by(code_exutoire, toponyme, code_espece, esp_nom_commun, annee) 
+# %>%
+#   summarise(n_abs = sum(statut == "Absent"),
+#             n_pres = sum(statut == "Présent"),
+#             n_n_d = sum(statut == "Non détecté")) %>%
+#   ungroup() %>%
+#   mutate(statut = case_when(
+#     n_pres > 0 ~ "Présent",
+#     n_pres == 0 & n_abs > 0 ~ "Absent",
+#     TRUE ~ "Non détecté"
+#   ))
 
-bv_map_data_geo <- bv_simp_geo %>% 
-  left_join(bv_map_data) %>% 
-  mutate(statut = ifelse(is.na(statut), "Non prospecté", statut),
-         statut = as.factor(statut),
-         statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
+bv_map_data_geo <- bv_simp_geo %>%
+  left_join(bv_map_data)
+# %>%
+#   mutate(statut = ifelse(is.na(statut), "Non prospecté", statut),
+#          statut = as.factor(statut),
+#          statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
 
+bv_map_geo <- bv_map_data_geo %>% 
+  select(code_exutoire, geometry) %>% 
+  unique()
 
+pt_geo <- pt_geo %>% 
+  select(code_coords, geometry) %>% 
+  distinct()
 
 pt_data_geo_esp <- pt_data_geo %>%
-  filter(code_espece == mon_espece) %>%
   st_sf
-
-mapview(bv_map_data_geo,
-        zcol = "statut",
-        layer.name = mon_espece,
-        map.types = c("OpenStreetMap", "Esri.WorldImagery"),
-        col.regions = c("green", "red", "pink", "grey50"),
-        alpha.regions = 0.5) + 
-  mapview(pt_data_geo_esp,
-          zcol = "statut",
-          col.regions = c("red", "pink", "green"),
-          cex = 4,
-          legend = FALSE)
-
-
-
-
-
-
 
 
 
@@ -233,8 +232,12 @@ mapview(bv_map_data_geo,
 # save.image(file = "processed_data/fish_and_geographical_data.RData")
 
 save(pt_data,
-     pt_data_geo,
-     pt_data_geo_esp,
+     pt_geo,
      bv_map_data,
+<<<<<<< HEAD
      bv_map_data_geo,
      file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
+=======
+     bv_map_geo,
+     file = "../atlas_poissons_app/atlas/donnees_appli.RData")
+>>>>>>> 7fcbe985c420276dcd4553ce9c19cb1da809a210
