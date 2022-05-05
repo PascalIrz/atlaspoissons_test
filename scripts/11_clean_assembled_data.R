@@ -230,11 +230,11 @@ mapview(bv_map_data_geo,
 
 
 
-save.image(file = "processed_data/fish_and_geographical_data.RData")
+# save.image(file = "processed_data/fish_and_geographical_data.RData")
 
 save(pt_data,
      pt_data_geo,
      pt_data_geo_esp,
      bv_map_data,
      bv_map_data_geo,
-     file = "../atlas_poissons_app/atlas/donnees_appli.RData")
+     file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
