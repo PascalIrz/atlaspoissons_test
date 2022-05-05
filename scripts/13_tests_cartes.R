@@ -17,19 +17,20 @@ bv <- bv_map_data %>%
   summarise(n_abs = sum(statut == "Absent"),
             n_pres = sum(statut == "Présent"),
             n_n_d = sum(statut == "Non détecté"),
-            n_np = sum(statut == "Non prospecté")) %>% 
+            n_np = sum(is.na(statut))) %>% 
   ungroup() %>% 
   mutate(statut = case_when(
     n_pres > 0 ~ "Présent",
     n_pres == 0 & n_abs > 0 ~ "Absent",
+    n_np > 0 ~ "Non prospecté",
     TRUE ~ "Non détecté"
   )) 
 
 # Le mutate ne fonctionne donc pas, les bv non prospectés n'apparaissent pas
-bv %>% 
-  mutate(statut = ifelse(is.na(statut), "Non prospecté", statut),
-         statut = as.factor(statut),
-         statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
+# bv %>% 
+#   mutate(statut = ifelse(is.na(statut), "Non prospecté", statut),
+#          statut = as.factor(statut),
+#          statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
 
 bv_geo <- bv %>% 
   left_join(bv_map_geo) %>% 
@@ -60,7 +61,7 @@ pt_g <- pt_geo %>%
 
 mon_espece <- "Lamproie marine"
 premiere_annee <- 2018
-derniere_annee <- 2018
+derniere_annee <- 2021
 
 pt_g <- pt_g %>% 
   filter(esp_nom_commun == mon_espece,
@@ -81,7 +82,7 @@ mapview(bv_geo,
         zcol = "statut",
         layer.name = mon_espece,
         map.types = c("OpenStreetMap", "Esri.WorldImagery"),
-        col.regions = c("red", "pink", "green", "grey40"),
+        col.regions = c("red", "pink", "green"),
         alpha.regions = 0.5) + 
   mapview(pt_g,
           zcol = "statut",
