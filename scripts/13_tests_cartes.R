@@ -4,7 +4,7 @@ library(mapview)
 
 rm(list = ls())
 
-load(file = "../atlas_poissons_app/atlas/donnees_appli.RData")
+load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
 # ==============================================================================
 # Assemblage des données
@@ -33,45 +33,64 @@ bv <- bv_map_data %>%
 #          statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
 
 bv_geo <- bv %>% 
-  left_join(bv_map_geo) %>% 
+  left_join(bv_geo) %>% 
   st_sf
 
 #######################
 # Pour les pts
 
-pt <- pt_data%>%
-  group_by(code_coords, code_exutoire, esp_nom_commun, code_espece, code_station, annee) %>%
-  summarise(n_an_abs = sum(statut == "Absent"),
-            n_an_pres = sum(statut == "Présent"),
-            n_an_n_d = sum(statut == "Non détecté")) %>%
-  ungroup() %>%
-  mutate(statut = case_when(
-    n_an_pres > 0 ~ "Présent",
-    n_an_pres == 0 & n_an_abs > 0 ~ "Absent",
-    TRUE ~ "Non détecté"
-  ))
-
-pt_g <- pt_geo %>%
-  left_join(pt)   %>% 
-  st_sf
+# pt <- pt_data%>%
+#   group_by(code_coords, code_exutoire, esp_nom_commun, code_espece, code_station, annee) %>%
+#   summarise(n_an_abs = sum(statut == "Absent"),
+#             n_an_pres = sum(statut == "Présent"),
+#             n_an_n_d = sum(statut == "Non détecté")) %>%
+#   ungroup() %>%
+#   mutate(statut = case_when(
+#     n_an_pres > 0 ~ "Présent",
+#     n_an_pres == 0 & n_an_abs > 0 ~ "Absent",
+#     TRUE ~ "Non détecté"
+#   ))
+# 
+# pt_g <- pt_geo %>%
+#   left_join(pt)   %>% 
+#   st_sf
 
 
 # ==============================================================================
 # Filtration des données pour choisir espèces et années
 
-mon_espece <- "Lamproie marine"
-premiere_annee <- 2018
+mon_espece <- "Anguille"
+premiere_annee <- 2020
 derniere_annee <- 2021
 
-pt_g <- pt_g %>% 
-  filter(esp_nom_commun == mon_espece,
-       annee >= premiere_annee,
-       annee <= derniere_annee)
+pt_data_aggr <- pt_data %>% 
+  filter(annee >= premiere_annee,
+         annee <= derniere_annee,
+         esp_nom_commun == mon_espece) %>% 
+  group_by(code_coords) %>%
+    summarise(statut = max(statut)) %>% 
+  ungroup()
 
-bv_geo <- bv_geo %>%
-  filter(esp_nom_commun == mon_espece,
-         annee >= premiere_annee,
-         annee <= derniere_annee)
+pt_map_data <- pt_geo %>% 
+  left_join(pt_data_aggr) %>% 
+  mutate(
+    statut = as.character(statut),
+    statut = ifelse(is.na(statut), "Non prospecté", statut))
+
+mapview(pt_map_data,
+        zcol = "statut",
+        col.region = c("red", "pink", "grey90", "green"),
+        layer.name = mon_espece)
+
+# pt_g <- pt_g %>% 
+#   filter(esp_nom_commun == mon_espece,
+#        annee >= premiere_annee,
+#        annee <= derniere_annee)
+# 
+# bv_geo <- bv_geo %>%
+#   filter(esp_nom_commun == mon_espece,
+#          annee >= premiere_annee,
+#          annee <= derniere_annee)
 
 
 # ==============================================================================
@@ -84,7 +103,7 @@ mapview(bv_geo,
         map.types = c("OpenStreetMap", "Esri.WorldImagery"),
         col.regions = c("red", "pink", "green"),
         alpha.regions = 0.5) + 
-  mapview(pt_g,
+  mapview(pt_map_data,
           zcol = "statut",
           col.regions = c("red", "pink", "green"),
           cex = 4,
