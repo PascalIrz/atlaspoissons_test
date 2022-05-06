@@ -43,9 +43,13 @@ noms_communs <- read_xls("raw_data/Codes espèces cemagref.xls") %>%
 
 data <- data %>%
   atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
-  mutate(code_coords = paste(round(x_wgs84, 6), round(y_wgs84, 6), sep = "_")) %>%
-  mutate(date_peche = as.Date(date_peche),
-         ope_id = paste0(code_coords, code_station, date_peche),
+  mutate(code_coords = paste(round(x_wgs84, 6),
+                             round(y_wgs84, 6),
+                             sep = "_"),
+         date_peche = as.Date(date_peche),
+         ope_id = paste0(code_coords,
+                         code_station,
+                         date_peche),
          annee = as.integer(annee)) %>%
   mutate_if(is.character, as.factor) %>%
   group_by_at(vars(-effectif)) %>% 
@@ -108,12 +112,16 @@ pt_absence <- data %>%
 # assemblage des données au point
 # ------------------------------
 pt_data <- rbind(pt_presence, pt_absence) %>% 
-  mutate(statut = as.factor(statut)) %>% 
+  mutate(
+    statut = as.factor(statut),
+    statut = fct_relevel(statut, c("Non détecté", "Absent", "Présent")),
+    statut = factor(statut, ordered = T)) %>% 
   droplevels() %>% 
   select(-date_peche, -ope_id)
 
 pt_data <- pt_data %>% 
-  left_join(noms_communs)
+  left_join(noms_communs) %>% 
+  mutate(statut = factor(statut, ordered = T)) # nécessaire plus loin pour summarise (.. = max(statut))
 
 rm(pt_presence, pt_absence)
 
@@ -137,27 +145,14 @@ pt_data <- pt_data %>%
 # création de l'objet sf des points
 pt_geo <- coords %>% 
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
-           crs = 4326)
+           crs = 4326) %>% 
+  select(code_coords, geometry) %>% 
+  distinct()
 
 gdata::keep(pt_data,
             pt_geo,
             bv_simp_geo,
             sure = TRUE)
-
-
-# pt_data_geo <- pt_data %>% 
-#   group_by(code_coords, code_exutoire, esp_nom_commun, code_espece, code_station, annee) %>% 
-#   # summarise(n_an_abs = sum(statut == "Absent"),
-#   #           n_an_pres = sum(statut == "Présent"),
-#   #           n_an_n_d = sum(statut == "Non détecté")) %>%
-#   # ungroup() %>%
-#   # mutate(statut = case_when(
-#   #   n_an_pres > 0 ~ "Présent",
-#   #   n_an_pres == 0 & n_an_abs > 0 ~ "Absent",
-#   #   TRUE ~ "Non détecté"
-#   # )) %>% 
-#   left_join(pt_geo) %>% 
-#   st_sf
 
 # ---------------------------------------------
 # Donnée au bassin
@@ -165,72 +160,14 @@ gdata::keep(pt_data,
 
 # détermination du statut par bassin x espèce chaque année
 bv_data <- pt_data %>% 
-  group_by(code_exutoire, code_espece, annee, esp_nom_commun) 
-# %>% 
-#     summarise(n_abs = sum(statut == "Absent"),
-#               n_pres = sum(statut == "Présent"),
-#               n_n_d = sum(statut == "Non détecté")) %>% 
-#   ungroup() %>% 
-#   mutate(statut = case_when(
-#     n_pres > 0 ~ "Présent",
-#     n_pres == 0 & n_abs > 0 ~ "Absent",
-#     TRUE ~ "Non détecté"
-#   ))
+  group_by(code_exutoire, code_espece, annee, esp_nom_commun) %>% 
+    summarise(statut = max(statut)) %>% 
+  ungroup()
 
 
-
-bv_map_data <- bv_simp_geo %>% 
-  st_drop_geometry() %>%
-  left_join(bv_data) %>%
-  group_by(code_exutoire, toponyme, code_espece, esp_nom_commun, annee) 
-# %>%
-#   summarise(n_abs = sum(statut == "Absent"),
-#             n_pres = sum(statut == "Présent"),
-#             n_n_d = sum(statut == "Non détecté")) %>%
-#   ungroup() %>%
-#   mutate(statut = case_when(
-#     n_pres > 0 ~ "Présent",
-#     n_pres == 0 & n_abs > 0 ~ "Absent",
-#     TRUE ~ "Non détecté"
-#   ))
-
-bv_map_data_geo <- bv_simp_geo %>%
-  left_join(bv_map_data)
-# %>%
-#   mutate(statut = ifelse(is.na(statut), "Non prospecté", statut),
-#          statut = as.factor(statut),
-#          statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
-
-bv_map_geo <- bv_map_data_geo %>% 
-  select(code_exutoire, geometry) %>% 
-  unique()
-
-pt_geo <- pt_geo %>% 
-  select(code_coords, geometry) %>% 
-  distinct()
-
-pt_data_geo_esp <- pt_data_geo %>%
-  st_sf
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# save.image(file = "processed_data/fish_and_geographical_data.RData")
 
 save(pt_data,
      pt_geo,
-     bv_map_data,
-     bv_map_data_geo,
+     bv_data,
+     bv_simp_geo,
      file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
