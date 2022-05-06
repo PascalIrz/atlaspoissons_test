@@ -1,5 +1,4 @@
 library(tidyverse)
-# library(lubridate)
 library(sf)
 library(mapview)
 library(aspe)
@@ -134,32 +133,31 @@ pt_data <- pt_data %>%
   filter(!is.na(code_exutoire)) %>% 
   sf::st_drop_geometry() %>% 
   left_join(coords)
-  
-  
-
-# bv_simp_geo <- bassins %>% 
-#   select(code_exutoire, toponyme, geometry)
-
 
 # création de l'objet sf des points
 pt_geo <- coords %>% 
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326)
 
+gdata::keep(pt_data,
+            pt_geo,
+            bv_simp_geo,
+            sure = TRUE)
 
-pt_data_geo <- pt_data %>% 
-  group_by(code_coords, code_exutoire, esp_nom_commun, code_espece, code_station, annee) %>% 
-  # summarise(n_an_abs = sum(statut == "Absent"),
-  #           n_an_pres = sum(statut == "Présent"),
-  #           n_an_n_d = sum(statut == "Non détecté")) %>%
-  # ungroup() %>%
-  # mutate(statut = case_when(
-  #   n_an_pres > 0 ~ "Présent",
-  #   n_an_pres == 0 & n_an_abs > 0 ~ "Absent",
-  #   TRUE ~ "Non détecté"
-  # )) %>% 
-  left_join(pt_geo) %>% 
-  st_sf
+
+# pt_data_geo <- pt_data %>% 
+#   group_by(code_coords, code_exutoire, esp_nom_commun, code_espece, code_station, annee) %>% 
+#   # summarise(n_an_abs = sum(statut == "Absent"),
+#   #           n_an_pres = sum(statut == "Présent"),
+#   #           n_an_n_d = sum(statut == "Non détecté")) %>%
+#   # ungroup() %>%
+#   # mutate(statut = case_when(
+#   #   n_an_pres > 0 ~ "Présent",
+#   #   n_an_pres == 0 & n_an_abs > 0 ~ "Absent",
+#   #   TRUE ~ "Non détecté"
+#   # )) %>% 
+#   left_join(pt_geo) %>% 
+#   st_sf
 
 # ---------------------------------------------
 # Donnée au bassin
@@ -234,10 +232,5 @@ pt_data_geo_esp <- pt_data_geo %>%
 save(pt_data,
      pt_geo,
      bv_map_data,
-<<<<<<< HEAD
      bv_map_data_geo,
      file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
-=======
-     bv_map_geo,
-     file = "../atlas_poissons_app/atlas/donnees_appli.RData")
->>>>>>> 7fcbe985c420276dcd4553ce9c19cb1da809a210
