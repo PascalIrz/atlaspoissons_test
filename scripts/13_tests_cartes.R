@@ -9,32 +9,13 @@ load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 # ==============================================================================
 # Assemblage des données
 
-#######################
-#Pour les bv
 
-bv <- bv_map_data %>% 
-  group_by(code_exutoire, code_espece, annee, esp_nom_commun) %>%
-  summarise(n_abs = sum(statut == "Absent"),
-            n_pres = sum(statut == "Présent"),
-            n_n_d = sum(statut == "Non détecté"),
-            n_np = sum(is.na(statut))) %>% 
-  ungroup() %>% 
-  mutate(statut = case_when(
-    n_pres > 0 ~ "Présent",
-    n_pres == 0 & n_abs > 0 ~ "Absent",
-    n_np > 0 ~ "Non prospecté",
-    TRUE ~ "Non détecté"
-  )) 
+# Filtration des données pour choisir espèces et années
 
-# Le mutate ne fonctionne donc pas, les bv non prospectés n'apparaissent pas
-# bv %>% 
-#   mutate(statut = ifelse(is.na(statut), "Non prospecté", statut),
-#          statut = as.factor(statut),
-#          statut = fct_relevel(statut, c("Présent", "Absent", "Non détecté", "Non prospecté" )))
+mon_espece <- "Chabot"
+premiere_annee <- 2020
+derniere_annee <- 2021
 
-bv_geo <- bv %>% 
-  left_join(bv_geo) %>% 
-  st_sf
 
 #######################
 # Pour les pts
@@ -57,54 +38,79 @@ bv_geo <- bv %>%
 
 
 # ==============================================================================
-# Filtration des données pour choisir espèces et années
-
-mon_espece <- "Anguille"
-premiere_annee <- 2020
-derniere_annee <- 2021
+# AU POINT
 
 pt_data_aggr <- pt_data %>% 
   filter(annee >= premiere_annee,
          annee <= derniere_annee,
          esp_nom_commun == mon_espece) %>% 
   group_by(code_coords) %>%
-    summarise(statut = max(statut)) %>% 
+    summarise(statut = max(statut)) %>% # car les statuts sont un facteur ordonné "non detect" < "absence" < "presence"
   ungroup()
 
 pt_map_data <- pt_geo %>% 
   left_join(pt_data_aggr) %>% 
   mutate(
     statut = as.character(statut),
-    statut = ifelse(is.na(statut), "Non prospecté", statut))
+    statut = ifelse(is.na(statut),
+                    "Non prospecté",
+                    statut))
 
 mapview(pt_map_data,
         zcol = "statut",
         col.region = c("red", "pink", "grey90", "green"),
-        layer.name = mon_espece)
+        layer.name = mon_espece,
+        map.types = c("OpenStreetMap", "Esri.WorldImagery"))
 
-# pt_g <- pt_g %>% 
-#   filter(esp_nom_commun == mon_espece,
-#        annee >= premiere_annee,
-#        annee <= derniere_annee)
-# 
-# bv_geo <- bv_geo %>%
-#   filter(esp_nom_commun == mon_espece,
-#          annee >= premiere_annee,
-#          annee <= derniere_annee)
+
+
+
+# ==============================================================================
+# AU BV
+
+bv_data_aggr <- bv_data %>% 
+  filter(annee >= premiere_annee,
+         annee <= derniere_annee,
+         esp_nom_commun == mon_espece) %>% 
+  group_by(code_exutoire, code_espece, esp_nom_commun) %>%
+    summarise(statut = max(statut)) %>% # car les statuts sont un facteur ordonné "non detect" < "absence" < "presence"
+  ungroup()
+
+  # summarise(n_abs = sum(statut == "Absent"),
+  #           n_pres = sum(statut == "Présent"),
+  #           n_n_d = sum(statut == "Non détecté"),
+  #           n_np = sum(is.na(statut))) %>% 
+  # ungroup() %>% 
+  # mutate(statut = case_when(
+  #   n_pres > 0 ~ "Présent",
+  #   n_pres == 0 & n_abs > 0 ~ "Absent",
+  #   n_np > 0 ~ "Non prospecté",
+  #   TRUE ~ "Non détecté"
+  # )) 
+
+bv_map_data <- bv_simp_geo %>% 
+  left_join(bv_data_aggr) %>% 
+  mutate(statut = as.character(statut),
+         statut = ifelse(is.na(statut),
+                          "Non prospecté",
+                          statut),
+         esp_nom_commun = ifelse(is.na(esp_nom_commun),
+                              mon_espece,
+                              esp_nom_commun)) 
+
 
 
 # ==============================================================================
 # Visualisation de la carte
 
-#La carte fonctionne, cependant les bv non prospectés n'apparaissent pas
-mapview(bv_geo,
+mapview(bv_map_data,
         zcol = "statut",
         layer.name = mon_espece,
         map.types = c("OpenStreetMap", "Esri.WorldImagery"),
-        col.regions = c("red", "pink", "green"),
+        col.regions = c("red", "pink", "grey70", "green"),
         alpha.regions = 0.5) + 
   mapview(pt_map_data,
           zcol = "statut",
-          col.regions = c("red", "pink", "green"),
-          cex = 4,
+          col.region = c("red", "pink", "grey90", "green"),
+          map.types = c("OpenStreetMap", "Esri.WorldImagery"),
           legend = FALSE)
