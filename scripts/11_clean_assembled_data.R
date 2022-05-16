@@ -21,7 +21,7 @@ ref_espece <- ref_espece %>%
 # simplification du découpage en bassins
 bv_simp_geo <- bassins %>% 
   select(code_exutoire, toponyme, geometry) %>% 
-  st_simplify(dTolerance = 20,
+  st_simplify(dTolerance = 50,
               preserveTopology = T)
 
 
@@ -29,9 +29,6 @@ bv_simp_geo <- bassins %>%
 # mise en forme du jeu de données au point
 # ------------------------------
 
-# Test: enlever les points à l'extérieur des bassins (sans succès)
-# data <- data %>% 
-#   filter(!geometry == bassins$geometry)
 
 noms_communs <- read_xls("raw_data/Codes espèces cemagref.xls") %>% 
   select(espoi, esnom) %>%

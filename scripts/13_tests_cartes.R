@@ -16,27 +16,6 @@ mon_espece <- "Chabot"
 premiere_annee <- 2020
 derniere_annee <- 2021
 
-
-#######################
-# Pour les pts
-
-# pt <- pt_data%>%
-#   group_by(code_coords, code_exutoire, esp_nom_commun, code_espece, code_station, annee) %>%
-#   summarise(n_an_abs = sum(statut == "Absent"),
-#             n_an_pres = sum(statut == "Présent"),
-#             n_an_n_d = sum(statut == "Non détecté")) %>%
-#   ungroup() %>%
-#   mutate(statut = case_when(
-#     n_an_pres > 0 ~ "Présent",
-#     n_an_pres == 0 & n_an_abs > 0 ~ "Absent",
-#     TRUE ~ "Non détecté"
-#   ))
-# 
-# pt_g <- pt_geo %>%
-#   left_join(pt)   %>% 
-#   st_sf
-
-
 # ==============================================================================
 # AU POINT
 
@@ -44,7 +23,7 @@ pt_data_aggr <- pt_data %>%
   filter(annee >= premiere_annee,
          annee <= derniere_annee,
          esp_nom_commun == mon_espece) %>% 
-  group_by(code_coords) %>%
+  group_by(code_coords, esp_nom_commun, localisation, effectif) %>%
     summarise(statut = max(statut)) %>% # car les statuts sont un facteur ordonné "non detect" < "absence" < "presence"
   ungroup()
 
@@ -56,11 +35,11 @@ pt_map_data <- pt_geo %>%
                     "Non prospecté",
                     statut))
 
-mapview(pt_map_data,
-        zcol = "statut",
-        col.region = c("red", "pink", "grey90", "green"),
-        layer.name = mon_espece,
-        map.types = c("OpenStreetMap", "Esri.WorldImagery"))
+# mapview(pt_map_data,
+#         zcol = "statut",
+#         col.region = c("red", "pink", "grey90", "green"),
+#         layer.name = mon_espece,
+#         map.types = c("OpenStreetMap", "Esri.WorldImagery"))
 
 
 
@@ -76,17 +55,6 @@ bv_data_aggr <- bv_data %>%
     summarise(statut = max(statut)) %>% # car les statuts sont un facteur ordonné "non detect" < "absence" < "presence"
   ungroup()
 
-  # summarise(n_abs = sum(statut == "Absent"),
-  #           n_pres = sum(statut == "Présent"),
-  #           n_n_d = sum(statut == "Non détecté"),
-  #           n_np = sum(is.na(statut))) %>% 
-  # ungroup() %>% 
-  # mutate(statut = case_when(
-  #   n_pres > 0 ~ "Présent",
-  #   n_pres == 0 & n_abs > 0 ~ "Absent",
-  #   n_np > 0 ~ "Non prospecté",
-  #   TRUE ~ "Non détecté"
-  # )) 
 
 bv_map_data <- bv_simp_geo %>% 
   left_join(bv_data_aggr) %>% 
