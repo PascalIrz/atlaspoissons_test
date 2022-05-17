@@ -13,7 +13,7 @@ load(file = "processed_data/data.RData")
 especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
                          "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC",
                          "GRV", "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX",
-                         "CYP", "GAX", "HBG", "HYC", "LPX")
+                         "CYP", "GAX", "HBG", "HYC", "LPX", "PFL")
 
 ref_espece <- ref_espece %>% 
   rename(code_espece = esp_code_alternatif)
