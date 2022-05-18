@@ -4,6 +4,9 @@ load(file = "../atlas_poissons_app/atlas/donnees_appli.RData")
 
 mon_espece = "Truite de rivière"
 
+# =======================================================
+# Graphs occurence
+
 occurence <- pt_data %>% 
   filter(esp_nom_commun == mon_espece) %>% 
   select(statut, annee)
@@ -65,3 +68,11 @@ occurences_sp <- data.frame(annees,occ)
 ggplot(occurences_sp, aes(annees, occ)) +
   geom_point() +
   geom_line()
+
+# =======================================================
+# Graphs fréquence
+
+frequence <- pt_data %>% 
+  filter(esp_nom_commun == mon_espece) %>% 
+  select(statut, annee)
+
