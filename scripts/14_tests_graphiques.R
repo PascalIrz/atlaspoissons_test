@@ -4,7 +4,7 @@ library(atlaspoissonapp)
 
 rm(list=ls())
 
-load(file = "../atlas_poissons_app/atlas/donnees_appli.RData")
+load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
 mon_espece = "Vairon"
 
@@ -18,9 +18,10 @@ data_etude <- pt_data %>%
   summarise(abondance = sum(effectif),
             n_presences = n())
 
+# =================================================
+
 gg_temp2 <- function(data, var_x, var_y) {
-  
-  ma_formule <- as.formula(quote(var_y) ~ quote(var_x))
+
   var_x <- enquo(var_x)
   var_y <- enquo(var_y)
   
@@ -28,27 +29,32 @@ gg_temp2 <- function(data, var_x, var_y) {
     geom_point() +
     geom_line() +
     coord_cartesian(ylim = c(0,NA))
-  
+
   # Regression linéaire
+  y <- data %>% 
+    pull(!!var_y)
   
-  regression <- lm(formula = ma_formule, data = data)
+  x <- data %>% 
+    pull(!!var_x)
   
-  # summary()
+  regression <- lm(y ~ x) %>% 
+    summary()
   
-  # pvalue <- regression$coefficients[,4] %>%
-  #   as.data.frame() %>%
-  #   
-  #   pvalue <- pvalue[-1,]
-  # 
-  # # Test
-  # if(pvalue > 0.5) {
-  #   g <- g +
-  #     geom_smooth(se = FALSE, method = "lm")
-  # }
-  # 
-  # g
+  pvalue <- regression$coefficients[2, 4]
+
+  # Test
+  if(pvalue < 0.05) {
+    g <- g +
+      geom_smooth(se = FALSE, method = "lm")
+  }
+
+  g
   
 }
+
+gg_temp2(data = data_etude,
+                 var_x = annee,
+                 var_y = abondance)
 
 
 # =======================================================
@@ -61,7 +67,7 @@ gg_temp2 <- function(data, var_x, var_y) {
 
 
 
-plot <- gg_temp2(data = data_etude, var_x = annee, var_y = abondance)
+
 # Fonction ne fonctionne pas
 # Erreur: "Quosures can only be unquoted within a quasiquotation context"
 
