@@ -6,7 +6,8 @@ rm(list=ls())
 
 load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
-mon_espece = "Vairon"
+mon_espece = "Gambusie"
+
 
 # =======================================================
 # Calculs
