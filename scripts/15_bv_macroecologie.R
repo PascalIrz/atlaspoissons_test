@@ -13,10 +13,9 @@ test <- pt_data %>%
   summarise(eff = sum(effectif))
 
 test <- test %>% 
-  group_by(code_exutoire, code_espece) %>%
-  summarise(presence = case_when(
-    test$eff > 1 ~ 1,
-    TRUE ~ 0
-  )) %>% 
-  unique()
- # affiche 0... si on ne met pas unique() on a 105 millions de résultats
+  group_by(code_exutoire, code_espece) %>% 
+  filter(eff > 0) %>% 
+  mutate(presence = "1") %>% 
+  select(code_exutoire,code_espece,presence)
+ # on enlève par contre tout le reste, on a juste les présences marquées d'un 1
+
