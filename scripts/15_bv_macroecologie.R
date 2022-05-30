@@ -12,7 +12,7 @@ test <- pt_data %>%
   group_by(code_exutoire, code_espece) %>%
   summarise(eff = sum(effectif))
 
-test <- test %>% 
+test1 <- test %>% 
   group_by(code_exutoire, code_espece) %>% 
   filter(eff > 0) %>% 
   mutate(presence = "1") %>% 
@@ -20,18 +20,21 @@ test <- test %>%
   ungroup()
  # on enlève par contre tout le reste, on a juste les présences marquées d'un 1
 
-code_exutoire <- test %>%
-  pull(code_exutoire) %>%
-  unique()
-
-code_espece <- test %>% 
-  pull(code_espece) %>% 
-  unique()
-
 test2 <- test %>% 
-  select(code_espece, presence) %>% 
-  pivot_wider(names_from = "code_espece", 
-              values_to = "presence", 
-              values_fill = 0)
-# Ne fonctionne pas, normal parce qu'il faut
+  group_by(code_exutoire, code_espece) %>% 
+  filter(eff == 0) %>% 
+  rename(presence = eff)
+# On récupère ici le reste des données (pas nécessaire je suppose qu'après on peut faire un truc pour fill avec des 0)
 
+test_regroupe <- test1 %>% 
+  rbind(test1,test2)
+# On regroupe test1 et test2
+
+rm(test1, test2, test)
+  
+
+test_pivot <- test_regroupe %>%
+  pivot_wider(names_from = "code_espece",
+              values_to = "presence",
+              values_fill = 0)
+# Ne fonctionne pas, normal parce qu'il faut garder les code_exutoire
