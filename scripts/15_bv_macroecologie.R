@@ -24,7 +24,8 @@ test2 <- test %>%
   group_by(code_exutoire, code_espece) %>% 
   filter(eff == 0) %>% 
   rename(presence = eff)
-# On récupère ici le reste des données (pas nécessaire je suppose qu'après on peut faire un truc pour fill avec des 0)
+# On récupère ici le reste des données (pas nécessaire je suppose qu'après 
+# on peut faire un truc pour fill avec des 0)
 
 test_regroupe <- test1 %>% 
   rbind(test1,test2)
