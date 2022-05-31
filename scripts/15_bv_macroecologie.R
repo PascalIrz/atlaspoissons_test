@@ -1,4 +1,6 @@
 library(tidyverse)
+library(sf)
+library(vegan)
 
 rm(list = ls())
 
@@ -10,32 +12,43 @@ rm(data, ref_espece)
 test <- pt_data %>%
   select(code_exutoire, code_espece, effectif) %>%
   group_by(code_exutoire, code_espece) %>%
-  summarise(eff = sum(effectif))
-
-test1 <- test %>% 
-  group_by(code_exutoire, code_espece) %>% 
-  filter(eff > 0) %>% 
-  mutate(presence = "1") %>% 
-  select(code_exutoire,code_espece,presence) %>% 
-  ungroup()
- # on enlève par contre tout le reste, on a juste les présences marquées d'un 1
-
-test2 <- test %>% 
-  group_by(code_exutoire, code_espece) %>% 
-  filter(eff == 0) %>% 
-  rename(presence = eff)
-# On récupère ici le reste des données (pas nécessaire je suppose qu'après 
-# on peut faire un truc pour fill avec des 0)
-
-test_regroupe <- test1 %>% 
-  rbind(test1,test2)
-# On regroupe test1 et test2
-
-rm(test1, test2, test)
+  summarise(eff = sum(effectif)) %>% 
+  ungroup() %>% 
+  mutate(eff = ifelse(eff > 0, 
+                      yes = 1,
+                      no =0))
   
 
-test_pivot <- test_regroupe %>%
+test_pivot <- test %>%
   pivot_wider(names_from = "code_espece",
-              values_to = "presence",
-              values_fill = 0)
-# Ne fonctionne pas, normal parce qu'il faut garder les code_exutoire
+              values_from = "eff")
+
+bassins_no_geom <- bassins %>% 
+  st_drop_geometry()
+
+rm(bassins, pt_data, bv_data, bv_simp_geo, pt_geo)
+
+# =====================================
+
+# Préparation du tableau de données
+
+# Matrice des effectifs.
+
+matrice <- test_pivot %>%
+  column_to_rownames(var = "code_exutoire")
+
+
+
+# Ici il faudra filtrer pour virer certains taxons.
+
+
+
+# Calcul des indices :
+
+indices <- matrice %>% 
+  transmute(richesse = specnumber(.),
+            shannon = diversity(.),
+            simpson = diversity(., index = "simpson"),
+            pielou = shannon/log(richesse)) %>% 
+  rownames_to_column(var = "code_exutoire")
+  
