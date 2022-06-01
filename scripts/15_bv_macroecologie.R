@@ -27,7 +27,7 @@ presence <- data %>%
 
 
 
-rm(bassins, pt_data, bv_data, bv_simp_geo, pt_geo)
+rm(pt_data, bv_data, bv_simp_geo, pt_geo)
 
 # =====================================
 
@@ -35,12 +35,12 @@ rm(bassins, pt_data, bv_data, bv_simp_geo, pt_geo)
 
 # Matrice des presences
 
-matrice <- presence %>%
+matrice_presence <- presence %>%
   column_to_rownames(var = "code_exutoire")
 
 # Calcul des indices
 
-indices <- matrice %>%
+indices <- matrice_presence %>%
   transmute(
     richesse = specnumber(.),
     shannon = diversity(.),
@@ -56,8 +56,19 @@ indices <- matrice %>%
 #   group_by(code_exutoire) %>%
 #   summarise(abondance = sum(eff))
 
-# jointure
+# création objet bassins
+centroid <- st_centroid(bassins) %>%
+  st_coordinates() %>%
+  as.data.frame %>%
+  set_names(c("x_centroid", "y_centroid"))
 
+bassins_no_geom <- bassins %>%
+  st_drop_geometry() %>%
+  cbind(centroid) %>%
+  select(-X_exutoire,-X_centroid) %>%
+  filter(code_exutoire %in% data$code_exutoire)
+
+# jointure
 data_me <- indices %>%
   left_join(y = bassins_no_geom) %>%
   mutate(log_richesse = log10(richesse + 1))
@@ -79,63 +90,58 @@ ggplot(data = data_me, aes(x = alt_moy, y = richesse)) +
 
 # =============================
 
-centroid <- st_centroid(bassins) %>%
-  st_coordinates() %>%
-  as.data.frame %>%
-  set_names(c("x_centroid", "y_centroid"))
 
-bassins_no_geom <- bassins %>%
-  st_drop_geometry() %>%
-  cbind(centroid) %>%
-  select(-X_exutoire,-X_centroid) %>%
-  filter(code_exutoire %in% data_me$code_exutoire)
-
-
-bassins_no_geom_prov <- bassins_no_geom %>%
-  select(-toponyme,
-         -canal_conn,
-         -pb,
-         -prospecte,
-         -x_centroid,
-         -y_centroid,
-         -strahler_m,
-         -pte_tp_moy,
-         -starts_with("parc"),
-         -prct_rpg) %>% 
-  mutate(long_tp_m = log10(long_tp_m+1),
+bassins_verif <- bassins_no_geom %>%
+  select(
+    -toponyme,
+    -canal_conn,
+    -pb,
+    -prospecte,
+    -x_centroid,
+    -y_centroid,
+    -strahler_m,
+    -pte_tp_moy,
+    -starts_with("parc"),
+    -prct_rpg
+  ) %>%
+  mutate(
+    long_tp_m = log10(long_tp_m + 1),
     # on log pour que ce soit gaussien
     surf_m2 = log10(surf_m2),
     # on log pour que ce soit gaussien
-    prct_PE_CE = asin(sqrt(prct_PE_CE/100)),# on fait un arcsin pour les pourcentages
+    prct_PE_CE = asin(sqrt(prct_PE_CE / 100)),
+    # on fait un arcsin pour les pourcentages
     prct_PE_CE = ifelse(is.na(prct_PE_CE),
                         yes = 0,
-                        no = prct_PE_CE)) %>% 
+                        no = prct_PE_CE)
+  ) %>%
   pivot_longer(cols = surf_m2:prct_PE_CE,
                names_to = "variable",
                values_to = "valeur")
 
 # On vérifie que les variables suivent une distribution gaussienne
-ggplot(data = bassins_no_geom_prov, aes(x = valeur)) +
+ggplot(data = bassins_verif, aes(x = valeur)) +
   geom_histogram() +
   facet_wrap( ~ variable, scales = "free")
 
 # On construit l'ACP
 
-bassins_no_geom_acp <- bassins_no_geom_prov  %>% 
+bassins_acp <- bassins_verif %>%
   pivot_wider(names_from = "variable",
               values_from = "valeur",
-              values_fill = 0) %>% 
+              values_fill = 0) %>%
   column_to_rownames(var = "code_exutoire")
 
-res <- PCA(bassins_no_geom_acp)
+res <- PCA(bassins_acp)
 
 # ====================================
 
-data_modele <- bassins_no_geom_acp %>% 
-  rownames_to_column(var = "code_exutoire") %>% 
+data_modele <- bassins_acp %>%
+  rownames_to_column(var = "code_exutoire") %>%
   left_join(indices)
 
-m <- lm(formula = richesse~pente_medi+alt_median+surf_m2+prct_PE_CE,
-        data = data_modele)  
+m <-
+  lm(formula = richesse ~ pente_medi + alt_median + surf_m2 + prct_PE_CE,
+     data = data_modele)
 summary(m)
 plot(m)
