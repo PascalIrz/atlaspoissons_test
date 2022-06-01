@@ -90,7 +90,7 @@ ggplot(data = data_me, aes(x = alt_moy, y = richesse)) +
 
 # =============================
 
-
+# On vérifie que les variables env suivent un modèle gaussien
 bassins_verif <- bassins_no_geom %>%
   select(
     -toponyme,
@@ -125,7 +125,6 @@ ggplot(data = bassins_verif, aes(x = valeur)) +
   facet_wrap( ~ variable, scales = "free")
 
 # On construit l'ACP
-
 bassins_acp <- bassins_verif %>%
   pivot_wider(names_from = "variable",
               values_from = "valeur",
@@ -135,6 +134,7 @@ bassins_acp <- bassins_verif %>%
 res <- PCA(bassins_acp)
 
 # ====================================
+# regression linéaire
 
 data_modele <- bassins_acp %>%
   rownames_to_column(var = "code_exutoire") %>%
@@ -145,3 +145,5 @@ m <-
      data = data_modele)
 summary(m)
 plot(m)
+
+rm(bassins, bassins_verif, centroid, bassins_acp, indices, matrice_presence, data, res)
