@@ -11,6 +11,9 @@ load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
 rm(data, ref_espece)
 
+bassins_geom <- bassins %>% 
+  select(code_exutoire, geometry)
+
 data <- pt_data %>%
   select(code_exutoire, code_espece, effectif) %>%
   group_by(code_exutoire, code_espece) %>%
@@ -147,3 +150,21 @@ summary(m)
 plot(m)
 
 rm(bassins, bassins_verif, centroid, bassins_acp, indices, matrice_presence, data, res)
+# Il nous reste maintenant: 
+# bassins_geom = codes exut + géométrie
+# bassins_non_geom = informations sur les bassins 
+# data_me = indices + informations
+# data_modele = data pour le lm
+# m = modèle lm
+# presence = liste de présence/absence des espèces
+
+plot(m$residuals)
+summary(m$residuals)
+
+test <- bassins_geom %>% 
+  filter(code_exutoire %in% data_me$code_exutoire) %>% 
+  cbind(m$residuals)
+
+library(mapview)
+mapview(test, 
+        zcol = "m.residuals")
