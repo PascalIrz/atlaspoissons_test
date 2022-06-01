@@ -76,7 +76,7 @@ data_me <- indices %>%
   left_join(y = bassins_no_geom) %>%
   mutate(log_richesse = log10(richesse + 1))
 
-# carte richesse / surface
+# graphique richesse / surface
 ggplot(data = data_me %>%
          filter(richesse > 0),
        aes(x = surf_m2, y = log_richesse)) +
@@ -84,7 +84,7 @@ ggplot(data = data_me %>%
   scale_x_log10() +
   geom_smooth(method = "loess", se = FALSE)
 
-# carte richesse / altitude
+# graphique richesse / altitude
 ggplot(data = data_me, aes(x = alt_moy, y = richesse)) +
   geom_point() +
   scale_y_log10() +
@@ -161,10 +161,10 @@ rm(bassins, bassins_verif, centroid, bassins_acp, indices, matrice_presence, dat
 plot(m$residuals)
 summary(m$residuals)
 
-test <- bassins_geom %>% 
+carte_residuals <- bassins_geom %>% 
   filter(code_exutoire %in% data_me$code_exutoire) %>% 
   cbind(m$residuals)
 
 library(mapview)
-mapview(test, 
+mapview(carte_residuals, 
         zcol = "m.residuals")
