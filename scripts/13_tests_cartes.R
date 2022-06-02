@@ -1,6 +1,7 @@
 library(tidyverse)
 library(sf)
 library(mapview)
+library(leafpop)
 
 rm(list = ls())
 
@@ -81,4 +82,9 @@ mapview(bv_map_data,
           zcol = "statut",
           col.region = c("red", "pink", "grey90", "green"),
           map.types = c("OpenStreetMap", "Esri.WorldImagery"),
-          legend = FALSE)
+          legend = FALSE,
+          popup = popupTable(pt_map_data,
+                             zcol = c("localisation",
+                                      "esp_nom_commun",
+                                      "statut",
+                                      "effectif")))
