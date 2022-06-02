@@ -88,3 +88,14 @@ mapview(bv_map_data,
                                       "esp_nom_commun",
                                       "statut",
                                       "effectif")))
+
+
+# ==============================================================================
+# Ajout statut LR
+
+statut_lr <- liste_rouge %>% 
+  select(esp_code_alternatif, statut_lr_fr) %>% 
+  rename(code_espece = esp_code_alternatif)
+
+data_statut_lr <- pt_data %>% 
+  left_join(statut_lr)
