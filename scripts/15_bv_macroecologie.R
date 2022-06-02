@@ -3,6 +3,7 @@ library(sf)
 library(vegan)
 library(factoextra)
 library(FactoMineR)
+library(mapview)
 
 rm(list = ls())
 
@@ -100,13 +101,12 @@ bassins_verif <- bassins_no_geom %>%
     -canal_conn,
     -pb,
     -prospecte,
-    -x_centroid,
-    -y_centroid,
     -strahler_m,
     -pte_tp_moy,
     -starts_with("parc"),
     -prct_rpg
   ) %>%
+  filter(!code_exutoire %in% c("exut_303", "exut_212", "exut_665", "exut_3627")) %>%
   mutate(
     long_tp_m = log10(long_tp_m + 1),
     # on log pour que ce soit gaussien
@@ -140,16 +140,18 @@ res <- PCA(bassins_acp)
 # regression linéaire
 
 data_modele <- bassins_acp %>%
-  rownames_to_column(var = "code_exutoire") %>%
-  left_join(indices)
+  rownames_to_column(var = "code_exutoire") %>% 
+  left_join(indices) %>%
+  mutate(code_exut = code_exutoire) %>% 
+  column_to_rownames(var = "code_exut")
 
 m <-
-  lm(formula = richesse ~ pente_medi + alt_median + surf_m2 + prct_PE_CE,
+  lm(formula = richesse ~ pente_medi + alt_median + surf_m2 + prct_PE_CE + x_centroid + y_centroid,
      data = data_modele)
 summary(m)
 plot(m)
 
-rm(bassins, bassins_verif, centroid, bassins_acp, indices, matrice_presence, data, res)
+rm(bassins, bassins_verif, centroid, bassins_acp, matrice_presence, data, res)
 # Il nous reste maintenant: 
 # bassins_geom = codes exut + géométrie
 # bassins_non_geom = informations sur les bassins 
@@ -162,9 +164,10 @@ plot(m$residuals)
 summary(m$residuals)
 
 carte_residuals <- bassins_geom %>% 
+  filter(!code_exutoire %in% c("exut_303", "exut_212", "exut_665", "exut_3627")) %>% 
   filter(code_exutoire %in% data_me$code_exutoire) %>% 
   cbind(m$residuals)
 
-library(mapview)
 mapview(carte_residuals, 
-        zcol = "m.residuals")
+        zcol = "m.residuals",
+        col.regions = RColorBrewer::brewer.pal(10, "PRGn"))
