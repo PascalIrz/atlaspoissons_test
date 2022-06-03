@@ -83,12 +83,8 @@ mapview(bv_map_data,
           zcol = "statut",
           col.region = c("red", "pink", "grey90", "green"),
           map.types = c("OpenStreetMap", "Esri.WorldImagery"),
-          legend = FALSE,
-          popup = popupTable(pt_map_data,
-                             zcol = c("localisation",
-                                      "esp_nom_commun",
-                                      "statut",
-                                      "effectif")))
+          cex = ifelse("statut" == "Non prospecté", 1, 3),
+          legend = FALSE)
 
 
 
