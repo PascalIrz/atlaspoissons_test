@@ -4,6 +4,8 @@ library(mapview)
 library(aspe)
 library(atlaspoissons)
 library(readxl)
+library(aspe)
+data(liste_rouge)
 
 rm(list = ls())
 
@@ -116,9 +118,15 @@ pt_data <- rbind(pt_presence, pt_absence) %>%
   droplevels() %>% 
   select(-date_peche, -ope_id)
 
+
+statut_lr <- liste_rouge %>% 
+  select(esp_code_alternatif, statut_lr_fr) %>% 
+  rename(code_espece = esp_code_alternatif)
+
 pt_data <- pt_data %>% 
   left_join(noms_communs) %>% 
-  mutate(statut = factor(statut, ordered = T)) # nécessaire plus loin pour summarise (.. = max(statut))
+  mutate(statut = factor(statut, ordered = T)) %>% # nécessaire plus loin pour summarise (.. = max(statut)) 
+  left_join(statut_lr) # Ajout statut liste rouge
 
 rm(pt_presence, pt_absence)
 

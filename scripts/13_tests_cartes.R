@@ -3,6 +3,7 @@ library(sf)
 library(mapview)
 library(leafpop)
 
+
 rm(list = ls())
 
 load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
@@ -90,12 +91,4 @@ mapview(bv_map_data,
                                       "effectif")))
 
 
-# ==============================================================================
-# Ajout statut LR
 
-statut_lr <- liste_rouge %>% 
-  select(esp_code_alternatif, statut_lr_fr) %>% 
-  rename(code_espece = esp_code_alternatif)
-
-data_statut_lr <- pt_data %>% 
-  left_join(statut_lr)
