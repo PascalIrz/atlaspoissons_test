@@ -166,11 +166,17 @@ gdata::keep(pt_data,
 # Donnée au bassin
 # ---------------------------------------------
 
-# détermination du statut par bassin x espèce chaque année
+bv_effectif <- pt_data %>% 
+  group_by(code_exutoire, esp_nom_commun) %>% 
+  summarise(effectif = sum(effectif))
+
+# détermination du statut par bassin x espèce chaque année + ajout effectif
 bv_data <- pt_data %>% 
   group_by(code_exutoire, code_espece, annee, esp_nom_commun) %>% 
     summarise(statut = max(statut)) %>% 
-  ungroup()
+  ungroup() %>% 
+  left_join(bv_effectif)
+
 
 
 
