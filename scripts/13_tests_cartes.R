@@ -25,7 +25,7 @@ pt_data_aggr <- pt_data %>%
   filter(annee >= premiere_annee,
          annee <= derniere_annee,
          esp_nom_commun == mon_espece) %>% 
-  group_by(code_coords, esp_nom_commun, localisation, effectif) %>%
+  group_by(code_coords, esp_nom_commun, localisation, effectif, statut_lr_fr, fiche) %>%
     summarise(statut = max(statut)) %>% # car les statuts sont un facteur ordonné "non detect" < "absence" < "presence"
   ungroup()
 

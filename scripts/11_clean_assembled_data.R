@@ -123,10 +123,13 @@ statut_lr <- liste_rouge %>%
   select(esp_code_alternatif, statut_lr_fr) %>% 
   rename(code_espece = esp_code_alternatif)
 
+fiche_inpn <- read_xlsx("raw_data/liens_fiches_inpn.xlsx")
+
 pt_data <- pt_data %>% 
   left_join(noms_communs) %>% 
   mutate(statut = factor(statut, ordered = T)) %>% # nécessaire plus loin pour summarise (.. = max(statut)) 
-  left_join(statut_lr) # Ajout statut liste rouge
+  left_join(statut_lr) %>%  # Ajout statut liste rouge
+  left_join(fiche_inpn) # Ajout des liens vers les fiches
 
 rm(pt_presence, pt_absence)
 
