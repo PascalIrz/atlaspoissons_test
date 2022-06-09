@@ -131,8 +131,7 @@ lr_regionale <- read_ods("raw_data/LRR_RBR_08_avril_2015.ods") %>%
   rename(esp_nom_commun = NOM_FRANCAIS,
          lr_regionale = LRR)
 
-fiche_inpn <- read_xlsx("raw_data/liens_fiches_inpn.xlsx")
-
+fiche_inpn <- read_xlsx("raw_data/liens_fiches_inpn.xlsx") 
 
 pt_data <- pt_data %>% 
   left_join(noms_communs) %>% 
@@ -195,3 +194,4 @@ save(pt_data,
      bv_data,
      bv_simp_geo,
      file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
+
