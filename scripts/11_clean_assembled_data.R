@@ -6,6 +6,7 @@ library(atlaspoissons)
 library(readxl)
 library(aspe)
 data(liste_rouge)
+library(readODS)
 
 rm(list = ls())
 
@@ -119,16 +120,25 @@ pt_data <- rbind(pt_presence, pt_absence) %>%
   select(-date_peche, -ope_id)
 
 
-statut_lr <- liste_rouge %>% 
+lr_nationale <- liste_rouge %>% 
   select(esp_code_alternatif, statut_lr_fr) %>% 
-  rename(code_espece = esp_code_alternatif)
+  rename(code_espece = esp_code_alternatif,
+         lr_nationale = statut_lr_fr)
+
+lr_regionale <- read_ods("raw_data/LRR_RBR_08_avril_2015.ods") %>% 
+  filter(LISTE == "PoisEauDou") %>% 
+  select(NOM_FRANCAIS, LRR) %>% 
+  rename(esp_nom_commun = NOM_FRANCAIS,
+         lr_regionale = LRR)
 
 fiche_inpn <- read_xlsx("raw_data/liens_fiches_inpn.xlsx")
+
 
 pt_data <- pt_data %>% 
   left_join(noms_communs) %>% 
   mutate(statut = factor(statut, ordered = T)) %>% # nécessaire plus loin pour summarise (.. = max(statut)) 
-  left_join(statut_lr) %>%  # Ajout statut liste rouge
+  left_join(lr_nationale) %>%  # Ajout statut liste rouge (France)
+  left_join(lr_regionale) %>%  # Ajout statut liste rouge (Bretagne)
   left_join(fiche_inpn) # Ajout des liens vers les fiches
 
 rm(pt_presence, pt_absence)
