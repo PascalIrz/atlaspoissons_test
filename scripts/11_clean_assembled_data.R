@@ -131,6 +131,20 @@ lr_regionale <- read_ods("raw_data/LRR_RBR_08_avril_2015.ods") %>%
   rename(esp_nom_commun = NOM_FRANCAIS,
          lr_regionale = LRR)
 
+truite_riv = data.frame(esp_nom_commun = "Truite de rivière", lr_regionale = "LC") 
+
+lr_regionale <- lr_regionale %>% 
+  rbind(truite_riv)
+
+# On renomme les espèces qui n'ont pas le même nom
+lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Anguille européenne"]<-"Anguille"
+lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Brème commune"]<-"Brème"
+lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Carassin argenté"]<-"Carassin"
+lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Lamproie fluviatile"]<-"Lamproie de rivière"
+lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Perche-soleil"]<-"Perche soleil"
+lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Poisson-chat"]<-"Poisson chat"
+lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Truite commune"]<-"Truite de mer"
+
 fiche_inpn <- read_xlsx("raw_data/liens_fiches_inpn.xlsx") 
 
 pt_data <- pt_data %>% 
