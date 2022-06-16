@@ -145,7 +145,15 @@ lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Perche-soleil"]<-"
 lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Poisson-chat"]<-"Poisson chat"
 lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Truite commune"]<-"Truite de mer"
 
-fiche_inpn <- read_xlsx("raw_data/liens_fiches_inpn.xlsx") 
+fiche_inpn <- read_xlsx("raw_data/liens_fiches_inpn.xlsx")
+
+names <- pt_data %>% 
+  select(code_espece, esp_nom_commun)%>%
+  distinct() 
+
+codes_especes <- fiche_inpn %>% 
+  select(code_espece, code_alternatif) %>% 
+  left_join(names)
 
 pt_data <- pt_data %>% 
   left_join(noms_communs) %>% 
@@ -207,5 +215,6 @@ save(pt_data,
      pt_geo,
      bv_data,
      bv_simp_geo,
+     codes_especes,
      file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
