@@ -33,10 +33,10 @@ bv_simp_geo <- bassins %>%
 # ------------------------------
 
 
-noms_communs <- read_xls("raw_data/Codes espèces cemagref.xls") %>% 
-  select(espoi, esnom) %>%
-  rename(code_espece = espoi,
-         esp_nom_commun = esnom) 
+# noms_communs <- read_xls("raw_data/Codes espèces cemagref.xls") %>% 
+#   select(espoi, esnom) %>%
+#   rename(code_espece = espoi,
+#          esp_nom_commun = esnom) 
 
 # data <- data %>% 
 #   left_join(noms_communs)
@@ -119,49 +119,76 @@ pt_data <- rbind(pt_presence, pt_absence) %>%
   droplevels() %>% 
   select(-date_peche, -ope_id)
 
+pt_data <- pt_data %>% 
+  left_join(y = ref_espece %>% 
+              select(code_espece,
+                     esp_nom_commun)) %>% 
+  mutate(statut = factor(statut, ordered = T)) # nécessaire plus loin pour summarise (.. = max(statut)) 
+
+
+# ------------------------------
+# listes rouges
+# ------------------------------
 
 lr_nationale <- liste_rouge %>% 
-  select(esp_code_alternatif, statut_lr_fr) %>% 
-  rename(code_espece = esp_code_alternatif,
+  select(code_espece = esp_code_alternatif,
          lr_nationale = statut_lr_fr)
 
 lr_regionale <- read_ods("raw_data/LRR_RBR_08_avril_2015.ods") %>% 
   filter(LISTE == "PoisEauDou") %>% 
-  select(NOM_FRANCAIS, LRR) %>% 
-  rename(esp_nom_commun = NOM_FRANCAIS,
+  select(code_espece,
          lr_regionale = LRR)
 
-truite_riv = data.frame(esp_nom_commun = "Truite de rivière", lr_regionale = "LC") 
+truite_mer = data.frame(code_espece = "TRM",
+                        lr_regionale = "LC") 
 
 lr_regionale <- lr_regionale %>% 
-  rbind(truite_riv)
+  rbind(truite_mer)
 
-# On renomme les espèces qui n'ont pas le même nom
-lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Anguille européenne"]<-"Anguille"
-lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Brème commune"]<-"Brème"
-lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Carassin argenté"]<-"Carassin"
-lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Lamproie fluviatile"]<-"Lamproie de rivière"
-lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Perche-soleil"]<-"Perche soleil"
-lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Poisson-chat"]<-"Poisson chat"
-lr_regionale$esp_nom_commun[lr_regionale$esp_nom_commun %in% "Truite commune"]<-"Truite de mer"
+# ------------------------------
+# passerelle taxonomique + liens fiches INPN
+# ------------------------------
 
-fiche_inpn <- read_xlsx("raw_data/liens_fiches_inpn.xlsx")
+data("passerelle_taxo")
 
-names <- pt_data %>% 
-  select(code_espece, esp_nom_commun)%>%
-  distinct() 
+passerelle_taxo <- passerelle_taxo %>% 
+  rename(code_espece = esp_code_alternatif) %>% 
+  left_join(y = ref_espece %>% 
+              select(code_espece,
+                     esp_nom_commun)) %>% 
+  filter(!is.na(esp_nom_commun),
+         code_espece %in% unique(pt_data$code_espece)) %>% 
+  mutate(fiche_inpn = paste0("<a href='https://inpn.mnhn.fr/espece/cd_nom/",
+                             esp_code_taxref,
+                             "' target='_blank'>",
+                             esp_nom_commun,
+                             "</a>"))
 
-codes_especes <- fiche_inpn %>% 
-  select(code_espece, code_alternatif) %>% 
-  left_join(names)
-
-pt_data <- pt_data %>% 
-  left_join(noms_communs) %>% 
-  mutate(statut = factor(statut, ordered = T)) %>% # nécessaire plus loin pour summarise (.. = max(statut)) 
+passerelle_taxo <- passerelle_taxo %>% 
   left_join(lr_nationale) %>%  # Ajout statut liste rouge (France)
   left_join(lr_regionale) %>%  # Ajout statut liste rouge (Bretagne)
-  left_join(fiche_inpn) # Ajout des liens vers les fiches
-
+  mutate(lr_nationale = case_when(
+    lr_nationale == "EX" ~ "Eteint",
+    lr_nationale == "EW" ~ "Eteint à l'état sauvage",
+    lr_nationale == "CR" ~ "En danger critique d'extinction",
+    lr_nationale == "EN" ~ "En danger",
+    lr_nationale == "VU" ~ "Vulnérable",
+    lr_nationale == "NT" ~ "Quasi menacé",
+    lr_nationale == "LC" ~ "Préoccupation mineure",
+    lr_nationale == "DD" ~ "Données insuffisantes",
+    (lr_nationale == "NE" | is.na(lr_nationale)) ~ "Non évalué"),
+    lr_regionale = case_when(
+      lr_regionale == "EX" ~ "Eteint",
+      lr_regionale == "EW" ~ "Eteint à l'état sauvage",
+      lr_regionale == "CR" ~ "En danger critique d'extinction",
+      lr_regionale == "EN" ~ "En danger",
+      lr_regionale == "VU" ~ "Vulnérable",
+      lr_regionale == "NT" ~ "Quasi menacé",
+      lr_regionale == "LC" ~ "Préoccupation mineure",
+      lr_regionale == "DD" ~ "Données insuffisantes",
+      (lr_regionale == "NE" | is.na(lr_regionale)) ~ "Non évalué")
+    )
+  
 rm(pt_presence, pt_absence)
 
 
@@ -191,22 +218,23 @@ pt_geo <- coords %>%
 gdata::keep(pt_data,
             pt_geo,
             bv_simp_geo,
+            passerelle_taxo,
             sure = TRUE)
 
 # ---------------------------------------------
 # Donnée au bassin
 # ---------------------------------------------
 
-bv_effectif <- pt_data %>% 
-  group_by(code_exutoire, esp_nom_commun) %>% 
-  summarise(effectif = sum(effectif))
+# bv_effectif <- pt_data %>% 
+#   group_by(code_exutoire,
+#            esp_nom_commun) %>% 
+#   summarise(effectif = sum(effectif))
 
 # détermination du statut par bassin x espèce chaque année + ajout effectif
 bv_data <- pt_data %>% 
   group_by(code_exutoire, code_espece, annee, esp_nom_commun) %>% 
     summarise(statut = max(statut)) %>% 
-  ungroup() %>% 
-  left_join(bv_effectif)
+  ungroup()
 
 
 
@@ -215,6 +243,6 @@ save(pt_data,
      pt_geo,
      bv_data,
      bv_simp_geo,
-     codes_especes,
+     passerelle_taxo,
      file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
