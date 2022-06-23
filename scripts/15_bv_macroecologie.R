@@ -171,3 +171,65 @@ carte_residuals <- bassins_geom %>%
 mapview(carte_residuals, 
         zcol = "m.residuals",
         col.regions = RColorBrewer::brewer.pal(10, "PRGn"))
+
+# =============================
+# Richesse spécifique régionale et locale
+
+inventaire <- c("Atlas", 
+                "WAMA", 
+                "Complète", 
+                "Stratifiée par Points (grand milieu)",
+                "Pêche partielle par points (grand milieu)",
+                "Pêche complète à un ou plusieurs passages", 
+                " Pêche par ambiances",
+                "partiel",
+                "complet")
+
+nb_inv <- pt_data %>% 
+  filter(type_peche %in% inventaire) %>% 
+  group_by(code_exutoire) %>% 
+  summarise(n_inventaire = n_distinct(code_coords)) %>% 
+  filter(n_inventaire > 4)
+
+bv_test_macro <- nb_inv %>% 
+  left_join(bv_simp_geo) %>% 
+  st_sf()
+
+mapview(bv_test_macro)
+
+richesse <- pt_data %>% 
+  filter(code_exutoire %in% nb_inv$code_exutoire,
+         type_peche %in% inventaire,
+         statut == "Présent") %>%
+  group_by(code_coords, code_exutoire) %>% 
+  filter(annee == max(annee, na.rm = TRUE)) %>% # On prend seulement la dernière annee pour les stations échantillonnées plusieurs fois
+  ungroup()
+
+richesse_loc <- richesse %>%  
+  group_by(code_coords, code_exutoire) %>% 
+  summarise(richesse_locale = n_distinct(code_espece)) %>% 
+  group_by(code_exutoire) %>% 
+  summarise(richesse_loc_moy = mean(richesse_locale, na.rm = TRUE))
+
+
+richesse_reg <- richesse %>% 
+  group_by(code_exutoire) %>% 
+  summarise(richesse_regionale = n_distinct(code_espece))
+
+richesse_macro <- richesse_reg %>% 
+  left_join(richesse_loc)
+
+ggplot(data = richesse_macro %>% 
+         filter(code_exutoire != "exut_303"), 
+       aes(x = richesse_regionale, y = richesse_loc_moy)) +
+  geom_point() +
+  # geom_smooth() +
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2),
+              size = 1, se = FALSE, colour = "blue") +
+  # geom_abline(slope = 1, intercept = 0, col = "red") +
+  coord_cartesian(xlim = c(0,NA), ylim = c(0,NA))
+
+model <- lm(richesse_loc_moy ~ richesse_regionale + I(richesse_regionale^2), 
+            data = richesse_macro)
+  
+summary(model)
