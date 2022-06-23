@@ -33,9 +33,9 @@ presence <- data %>%
 
 rm(pt_data, bv_data, bv_simp_geo, pt_geo)
 
-# =====================================
-
+# ==============================================================================
 # Préparation du tableau de données
+# ==============================================================================
 
 # Matrice des presences
 
@@ -92,7 +92,7 @@ ggplot(data = data_me, aes(x = alt_moy, y = richesse)) +
   scale_x_log10() +
   geom_smooth(method = "loess", se = FALSE)
 
-# =============================
+# ==============================================================================
 
 # On vérifie que les variables env suivent un modèle gaussien
 bassins_verif <- bassins_no_geom %>%
@@ -136,8 +136,9 @@ bassins_acp <- bassins_verif %>%
 
 res <- PCA(bassins_acp)
 
-# ====================================
+# ==============================================================================
 # regression linéaire
+# ==============================================================================
 
 data_modele <- bassins_acp %>%
   rownames_to_column(var = "code_exutoire") %>% 
@@ -172,8 +173,9 @@ mapview(carte_residuals,
         zcol = "m.residuals",
         col.regions = RColorBrewer::brewer.pal(10, "PRGn"))
 
-# =============================
+# ==============================================================================
 # Richesse spécifique régionale et locale
+# ==============================================================================
 
 inventaire <- c("Atlas", 
                 "WAMA", 
