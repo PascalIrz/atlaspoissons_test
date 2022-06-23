@@ -167,27 +167,8 @@ passerelle_taxo <- passerelle_taxo %>%
 passerelle_taxo <- passerelle_taxo %>% 
   left_join(lr_nationale) %>%  # Ajout statut liste rouge (France)
   left_join(lr_regionale) %>%  # Ajout statut liste rouge (Bretagne)
-  mutate(lr_nationale = case_when(
-    lr_nationale == "EX" ~ "Eteint",
-    lr_nationale == "EW" ~ "Eteint à l'état sauvage",
-    lr_nationale == "CR" ~ "En danger critique d'extinction",
-    lr_nationale == "EN" ~ "En danger",
-    lr_nationale == "VU" ~ "Vulnérable",
-    lr_nationale == "NT" ~ "Quasi menacé",
-    lr_nationale == "LC" ~ "Préoccupation mineure",
-    lr_nationale == "DD" ~ "Données insuffisantes",
-    (lr_nationale == "NE" | is.na(lr_nationale)) ~ "Non évalué"),
-    lr_regionale = case_when(
-      lr_regionale == "EX" ~ "Eteint",
-      lr_regionale == "EW" ~ "Eteint à l'état sauvage",
-      lr_regionale == "CR" ~ "En danger critique d'extinction",
-      lr_regionale == "EN" ~ "En danger",
-      lr_regionale == "VU" ~ "Vulnérable",
-      lr_regionale == "NT" ~ "Quasi menacé",
-      lr_regionale == "LC" ~ "Préoccupation mineure",
-      lr_regionale == "DD" ~ "Données insuffisantes",
-      (lr_regionale == "NE" | is.na(lr_regionale)) ~ "Non évalué")
-    )
+  expliciter_statut_lr(var = lr_nationale) %>% 
+  expliciter_statut_lr(var = lr_regionale)
   
 rm(pt_presence, pt_absence)
 
