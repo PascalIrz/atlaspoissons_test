@@ -161,7 +161,7 @@ passerelle_taxo <- passerelle_taxo %>%
   mutate(fiche_inpn = paste0("<a href='https://inpn.mnhn.fr/espece/cd_nom/",
                              esp_code_taxref,
                              "' target='_blank'>",
-                             esp_nom_commun,
+                             "Fiche espèce INPN",
                              "</a>"))
 
 passerelle_taxo <- passerelle_taxo %>% 
@@ -215,7 +215,8 @@ gdata::keep(pt_data,
 bv_data <- pt_data %>% 
   group_by(code_exutoire, code_espece, annee, esp_nom_commun) %>% 
     summarise(statut = max(statut)) %>% 
-  ungroup()
+  ungroup() %>% 
+  mutate(layerId = code_exutoire)
 
 
 
