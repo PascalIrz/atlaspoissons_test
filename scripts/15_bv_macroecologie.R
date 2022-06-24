@@ -231,7 +231,13 @@ ggplot(data = richesse_macro %>%
   # geom_abline(slope = 1, intercept = 0, col = "red") +
   coord_cartesian(xlim = c(0,NA), ylim = c(0,NA))
 
-model <- lm(richesse_loc_moy ~ richesse_regionale + I(richesse_regionale^2), 
+# Methode 1 pour enlever intercept
+model <- lm(richesse_loc_moy ~ 0 +richesse_regionale + I(richesse_regionale^2), 
             data = richesse_macro)
-  
-summary(model)
+
+# Méthode 2 pour enlever intercept
+model2 <- lm(richesse_loc_moy ~ richesse_regionale + I(richesse_regionale^2) -1, 
+            data = richesse_macro)
+
+# Quelque soit la méthode utilisée, le résultat est le même avec le summary
+summary(model2)
