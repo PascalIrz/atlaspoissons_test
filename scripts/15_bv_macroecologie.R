@@ -31,7 +31,7 @@ presence <- data %>%
 
 
 
-rm(pt_data, bv_data, bv_simp_geo, pt_geo)
+# rm(pt_data, bv_data, bv_simp_geo, pt_geo)
 
 # ==============================================================================
 # Préparation du tableau de données
@@ -226,18 +226,42 @@ ggplot(data = richesse_macro %>%
        aes(x = richesse_regionale, y = richesse_loc_moy)) +
   geom_point() +
   # geom_smooth() +
-  stat_smooth(method = "lm", formula = y ~ x + I(x^2),
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), # 0 +  pour enlever intercept, ne change rien à la courbe
               size = 1, se = FALSE, colour = "blue") +
   # geom_abline(slope = 1, intercept = 0, col = "red") +
   coord_cartesian(xlim = c(0,NA), ylim = c(0,NA))
 
 # Methode 1 pour enlever intercept
-model <- lm(richesse_loc_moy ~ 0 +richesse_regionale + I(richesse_regionale^2), 
+mod <- lm(richesse_loc_moy ~ 0 + richesse_regionale
+            # + I(richesse_regionale^2) 
+            , 
             data = richesse_macro)
 
 # Méthode 2 pour enlever intercept
-model2 <- lm(richesse_loc_moy ~ richesse_regionale + I(richesse_regionale^2) -1, 
+# mod2 <- lm(richesse_loc_moy ~ richesse_regionale + I(richesse_regionale^2) -1, 
             data = richesse_macro)
 
 # Quelque soit la méthode utilisée, le résultat est le même avec le summary
-summary(model2)
+summary(mod)
+
+# ==============================================================================
+# Prédiction
+# ==============================================================================
+
+new_richesse_regionale <- data.frame(richesse_regionale = sample(1:39))
+
+new <- predict(mod, new_data = new_richesse_regionale, interval = 'confidence')
+
+new <- cbind(var_richesse_reg,new) %>% 
+  as.data.frame
+
+ggplot(new, aes())
+
+
+
+
+
+
+
+
+
