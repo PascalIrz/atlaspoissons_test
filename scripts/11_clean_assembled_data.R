@@ -5,7 +5,7 @@ library(aspe)
 library(atlaspoissons)
 library(readxl)
 library(aspe)
-data(liste_rouge)
+data(passerelle_taxo)
 library(readODS)
 
 rm(list = ls())
