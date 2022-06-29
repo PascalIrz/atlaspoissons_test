@@ -18,15 +18,75 @@ especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
                          "GRV", "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX",
                          "CYP", "GAX", "HBG", "HYC", "LPX", "PFL")
 
+# renommage du référentiel taxo + corrections sur les noms communs
 ref_espece <- ref_espece %>% 
-  rename(code_espece = esp_code_alternatif)
+  rename(code_espece = esp_code_alternatif) %>% 
+  mutate(esp_nom_commun = case_when(
+    code_espece == "GRE" ~ "Grémille",
+    code_espece == "CAG" ~ "Carassin argenté",
+    code_espece == "LPP" ~ "Lamproie de Planer",
+    code_espece == "TRF" ~ "Truite de rivière",
+    code_espece == "PCH" ~ "Poisson-chat",
+    code_espece == "PES" ~ "Perche-soleil",
+    TRUE ~ esp_nom_commun
+  ))
 
-# simplification du découpage en bassins
+# simplification du découpage en bassins et corrections sur les toponymes
 bv_simp_geo <- bassins %>% 
-  select(code_exutoire, toponyme, geometry) %>% 
+  select(code_exutoire,
+         toponyme,
+         geometry) %>% 
   st_simplify(dTolerance = 50,
-              preserveTopology = T)
-
+              preserveTopology = T) %>% 
+  mutate(toponyme = as.character(toponyme), # indispensable pour éviter des bugs dans l'appli
+         toponyme = str_to_title(toponyme),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " De",
+                                    replacement = " de"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " Du",
+                                    replacement = " du"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " La ",
+                                    replacement = " la "),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " Le",
+                                    replacement = " le"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " L'",
+                                    replacement = " l'"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " D'",
+                                    replacement = " d'"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " l'a",
+                                    replacement = " l'A"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " l'a",
+                                    replacement = " l'A"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " l'e",
+                                    replacement = " l'E"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " l'é",
+                                    replacement = " l'E"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " l'o",
+                                    replacement = " l'O"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " l'u",
+                                    replacement = " l'U"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = " d'a",
+                                    replacement = " D'A"),
+         toponyme = str_replace_all(toponyme,
+                                    pattern = "L'aber",
+                                    replacement = "L'Aber")
+         
+         ) %>% 
+  mutate(toponyme = ifelse(toponyme == "Nr",
+                    "Bassin non nommé",
+                    toponyme))
 
 # ------------------------------
 # mise en forme du jeu de données au point
@@ -158,16 +218,21 @@ passerelle_taxo <- passerelle_taxo %>%
                      esp_nom_commun)) %>% 
   filter(!is.na(esp_nom_commun),
          code_espece %in% unique(pt_data$code_espece)) %>% 
-  mutate(fiche_inpn = paste0("<a href='https://inpn.mnhn.fr/espece/cd_nom/",
+  mutate(fiche_inpn1 = paste0("<a href='https://inpn.mnhn.fr/espece/cd_nom/",
                              esp_code_taxref,
                              "' target='_blank'>",
                              "Fiche espèce INPN",
-                             "</a>"))
+                             "</a>"),
+         fiche_inpn2 = paste0("<a href='https://inpn.mnhn.fr/espece/cd_nom/",
+                              esp_code_taxref,
+                              "' target='_blank'>",
+                              esp_nom_commun,
+                              "</a>"))
 
 passerelle_taxo <- passerelle_taxo %>% 
   left_join(lr_nationale) %>%  # Ajout statut liste rouge (France)
   left_join(lr_regionale) %>%  # Ajout statut liste rouge (Bretagne)
-  expliciter_statut_lr(var = lr_nationale) %>% 
+  expliciter_statut_lr(var = lr_nationale) %>%  
   expliciter_statut_lr(var = lr_regionale)
   
 rm(pt_presence, pt_absence)
