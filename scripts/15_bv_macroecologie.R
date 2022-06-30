@@ -12,7 +12,7 @@ load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
 # ==============================================================================
 
-rmdata, ref_espece)
+rm(data, ref_espece)
 
 bassins_geom <- bassins %>% 
   select(code_exutoire, geometry)
