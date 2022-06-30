@@ -10,7 +10,9 @@ rm(list = ls())
 load(file = "processed_data/data.RData")
 load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
-rm(data, ref_espece)
+# ==============================================================================
+
+rmdata, ref_espece)
 
 bassins_geom <- bassins %>% 
   select(code_exutoire, geometry)
