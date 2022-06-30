@@ -239,7 +239,7 @@ mod <- lm(richesse_loc_moy ~ 0 + richesse_regionale
 
 # Méthode 2 pour enlever intercept
 # mod2 <- lm(richesse_loc_moy ~ richesse_regionale + I(richesse_regionale^2) -1, 
-            data = richesse_macro)
+#            data = richesse_macro)
 
 # Quelque soit la méthode utilisée, le résultat est le même avec le summary
 summary(mod)
@@ -248,20 +248,34 @@ summary(mod)
 # Prédiction
 # ==============================================================================
 
-new_richesse_regionale <- data.frame(richesse_regionale = sample(1:39))
+prediction <- mod$fitted.values %>% 
+  as.data.frame()
 
-new <- predict(mod, new_data = new_richesse_regionale, interval = 'confidence')
+richesse_prediction <- cbind(richesse_macro, prediction) %>% 
+  rename("fitted_values" = ".")
 
-new <- cbind(var_richesse_reg,new) %>% 
-  as.data.frame
+ggplot(richesse_prediction, aes(x = richesse_loc_moy,
+                       y = fitted_values)) +
+  geom_point() +
+  geom_smooth(method = lm)
 
-ggplot(new, aes())
+# ==============================================================================
+# Density
+# ==============================================================================
 
+donnees_pertinentes <- data %>% 
+  filter(source_donnee == "Aspe",
+         effectif > 0, 
+         annee == max(annee, na.rm = TRUE)) %>% 
+  select(code_exutoire, code_station, code_espece, effectif) %>% 
+  group_by(code_exutoire) %>% # toute espèce confondue, pas en fonction de l'espèce
+  summarise(effectif = sum(effectif)) %>% 
+  ungroup() 
+# Problème ! Sur les données ASPE, on n'a pas les code_exutoire
 
-
-
-
-
-
+density <- donnees_pertinentes %>%
+  group_by(code_exutoire) %>% 
+  summarise(density = effectif / bassins$surf_m2)
+  
 
 
