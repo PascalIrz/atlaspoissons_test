@@ -92,15 +92,6 @@ bv_simp_geo <- bassins %>%
 # mise en forme du jeu de données au point
 # ------------------------------
 
-
-# noms_communs <- read_xls("raw_data/Codes espèces cemagref.xls") %>% 
-#   select(espoi, esnom) %>%
-#   rename(code_espece = espoi,
-#          esp_nom_commun = esnom) 
-
-# data <- data %>% 
-#   left_join(noms_communs)
-
 data <- data %>%
   atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
   mutate(code_coords = paste(round(x_wgs84, 6),
@@ -241,6 +232,7 @@ rm(pt_presence, pt_absence)
 # attribution sur l'ensemble du jdd des bassins (code_exutoire)
 coords <- pt_data %>% 
   select(code_coords,
+         localisation,
          x_wgs84,
          y_wgs84) %>% 
   distinct()
@@ -258,23 +250,14 @@ pt_data <- pt_data %>%
 pt_geo <- coords %>% 
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326) %>% 
-  select(code_coords, geometry) %>% 
+  select(code_coords,
+         localisation,
+         geometry) %>% 
   distinct()
-
-gdata::keep(pt_data,
-            pt_geo,
-            bv_simp_geo,
-            passerelle_taxo,
-            sure = TRUE)
 
 # ---------------------------------------------
 # Donnée au bassin
 # ---------------------------------------------
-
-# bv_effectif <- pt_data %>% 
-#   group_by(code_exutoire,
-#            esp_nom_commun) %>% 
-#   summarise(effectif = sum(effectif))
 
 # détermination du statut par bassin x espèce chaque année + ajout effectif
 bv_data <- pt_data %>% 
