@@ -274,10 +274,12 @@ donnees_pertinentes <- data %>%
   summarise(effectif = sum(effectif)) %>% 
   ungroup() 
 # Problème ! Sur les données ASPE, on n'a pas les code_exutoire
+# Donc pas possible de calculer la densité par bassin versant
 
 density <- donnees_pertinentes %>%
   group_by(code_exutoire) %>% 
-  summarise(density = effectif / bassins$surf_m2)
+  summarise(density = effectif / ) # Comment calculer densité au point si on n'a pas de surface?
+
   
 
 
