@@ -261,25 +261,3 @@ ggplot(richesse_prediction, aes(x = richesse_loc_moy,
   geom_point() +
   geom_smooth(method = lm)
 
-# ==============================================================================
-# Density
-# ==============================================================================
-
-donnees_pertinentes <- data %>% 
-  filter(source_donnee == "Aspe",
-         effectif > 0, 
-         annee == max(annee, na.rm = TRUE)) %>% 
-  select(code_exutoire, code_station, code_espece, effectif) %>% 
-  group_by(code_exutoire) %>% # toute espèce confondue, pas en fonction de l'espèce
-  summarise(effectif = sum(effectif)) %>% 
-  ungroup() 
-# Problème ! Sur les données ASPE, on n'a pas les code_exutoire
-# Donc pas possible de calculer la densité par bassin versant
-
-density <- donnees_pertinentes %>%
-  group_by(code_exutoire) %>% 
-  summarise(density = effectif / ) # Comment calculer densité au point si on n'a pas de surface?
-
-  
-
-
