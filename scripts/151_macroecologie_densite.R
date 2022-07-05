@@ -56,12 +56,14 @@ densite_bv <- densite_pt %>%
   mutate(effectif = sum(effectif),
          densite_bassin = effectif/surf_m2,
          log_densite_bassin = log(densite_bassin)) %>% 
+  filter(annee == max(annee, na.rm = TRUE)) %>% 
   st_as_sf()
 
 mapview(densite_pt,
         zcol = "log_densite",
         cex = 4,
-        col.regions = brewer.pal(1117, "RdBu")) +
+        col.regions = brewer.pal(1117, "PuOr")) +
   mapview(densite_bv,
           zcol = "log_densite_bassin",
-          col.regions = brewer.pal(1117, "RdBu")) #la partie bv fait planter RStudio
+          col.regions = brewer.pal(1117, "PuOr"))
+
