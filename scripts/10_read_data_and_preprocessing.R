@@ -158,7 +158,7 @@ aspe <- mef_creer_passerelle() %>%
   filter(pop_id %in% mes_pops) %>% 
   clean_aspe()
 
-save(aspe, file = 'processed_data/aspe.RData')
+save(aspe, mes_pops, file = 'processed_data/aspe.RData')
 
 #-------------------------------------------------------------------
 # WAMA - NB pas de date de pêche ; codes stations sont codes sandre à "padifier"
