@@ -212,8 +212,17 @@ richesse <- pt_data %>%
 richesse_loc <- richesse %>%  
   group_by(code_coords, code_exutoire) %>% 
   summarise(richesse_locale = n_distinct(code_espece)) %>% 
+  left_join(pt_data %>% 
+              select("code_coords", "x_wgs84", "y_wgs84"))%>% 
   group_by(code_exutoire) %>% 
   summarise(richesse_loc_moy = mean(richesse_locale, na.rm = TRUE))
+
+# Test distribution richesse locale
+ggplot(data = richesse_loc,
+       aes(x = y_wgs84,
+           y = richesse_locale)) +
+  geom_point() +
+  geom_smooth(method = lm)
 
 
 richesse_reg <- richesse %>% 
@@ -234,9 +243,7 @@ ggplot(data = richesse_macro %>%
   coord_cartesian(xlim = c(0,NA), ylim = c(0,NA))
 
 # Methode 1 pour enlever intercept
-mod <- lm(richesse_loc_moy ~ 0 + richesse_regionale
-            # + I(richesse_regionale^2) 
-            , 
+mod <- lm(richesse_loc_moy ~ 0 + richesse_regionale + I(richesse_regionale^2), 
             data = richesse_macro)
 
 # Méthode 2 pour enlever intercept
@@ -256,8 +263,7 @@ prediction <- mod$fitted.values %>%
 richesse_prediction <- cbind(richesse_macro, prediction) %>% 
   rename("fitted_values" = ".")
 
-ggplot(richesse_prediction, aes(x = richesse_loc_moy,
+ggplot(richesse_prediction, aes(x = richesse_regionale,
                        y = fitted_values)) +
-  geom_point() +
-  geom_smooth(method = lm)
+  geom_point()
 

@@ -38,9 +38,14 @@ coords <- point_prelevement %>%
 
 # Densité au point
 densite_pt <- densite2 %>% 
-  left_join(coords) %>% 
+  left_join(coords) %>%  #pour la carte ajouter ce qui suit
   st_as_sf(coords = c("X", "Y"),
-           crs = 4326)
+        crs = 4326) 
+
+lm_densite <- lm(densite ~ X, densite_pt)
+summary(lm_densite) # H0 rejeté (p_value = 0.944), pas significatif
+
+chisq.test(densite_pt$densite, densite_pt$X) #H0 rejeté
 
 # Densité au bassin
 
@@ -48,7 +53,7 @@ load("processed_data/bassins.RData")
 
 densite_bv <- densite_pt %>%
   sf::st_join(bassins %>%
-                select(code_exutoire)) %>% 
+                select(code_exutoire, X_centroid)) %>% 
   st_drop_geometry %>% 
   left_join(bassins %>% 
               select(code_exutoire, geometry,surf_m2)) %>% 
@@ -56,9 +61,16 @@ densite_bv <- densite_pt %>%
   mutate(effectif = sum(effectif),
          densite_bassin = effectif/surf_m2,
          log_densite_bassin = log(densite_bassin)) %>% 
-  filter(annee == max(annee, na.rm = TRUE)) %>% 
-  st_as_sf()
+  filter(annee == max(annee, na.rm = TRUE)) # Pour carte ajouter ce qui suit
+# %>% 
+#   st_as_sf()
 
+lm_densitebv <- lm(densite ~ X_centroid, densite_bv)
+summary(lm_densitebv) # H0 rejeté (toutes les p_value > 0.05), pas significatif
+
+chisq.test(densite_bv$densite, densite_bv$X_centroid) #H0 rejeté
+
+# Carte pour visualiser
 mapview(densite_pt,
         zcol = "log_densite",
         cex = 4,
