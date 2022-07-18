@@ -38,18 +38,22 @@ coords <- point_prelevement %>%
 
 # Densité au point
 densite_pt <- densite2 %>% 
-  left_join(coords) %>%  #pour la carte ajouter ce qui suit
-  st_as_sf(coords = c("X", "Y"),
-        crs = 4326) 
+  left_join(coords)
+# %>%  #pour la carte ajouter ce qui suit
+#   st_as_sf(coords = c("X", "Y"),
+#         crs = 4326) 
 
-lm_densite <- lm(densite ~ X, densite_pt)
-summary(lm_densite) # H0 rejeté (p_value = 0.944), pas significatif
-
-chisq.test(densite_pt$densite, densite_pt$X) #H0 rejeté
+ggplot(data = densite_pt,
+       aes(x = Y,
+           y = log_densite)) + 
+  geom_point() +
+  geom_smooth(method = lm)
 
 # Densité au bassin
 
 load("processed_data/bassins.RData")
+ bassins <- bassins %>% 
+   st_drop_geometry()
 
 densite_bv <- densite_pt %>%
   sf::st_join(bassins %>%
@@ -65,10 +69,7 @@ densite_bv <- densite_pt %>%
 # %>% 
 #   st_as_sf()
 
-lm_densitebv <- lm(densite ~ X_centroid, densite_bv)
-summary(lm_densitebv) # H0 rejeté (toutes les p_value > 0.05), pas significatif
 
-chisq.test(densite_bv$densite, densite_bv$X_centroid) #H0 rejeté
 
 # Carte pour visualiser
 mapview(densite_pt,

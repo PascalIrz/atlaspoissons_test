@@ -14,7 +14,7 @@ load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
 rm(data, ref_espece)
 
-bassins_geom <- bassins %>% 
+bassins_geom <- bassins %>%
   select(code_exutoire, geometry)
 
 data <- pt_data %>%
@@ -71,13 +71,41 @@ centroid <- st_centroid(bassins) %>%
 bassins_no_geom <- bassins %>%
   st_drop_geometry() %>%
   cbind(centroid) %>%
-  select(-X_exutoire,-X_centroid) %>%
+  select(-X_exutoire, -X_centroid) %>%
   filter(code_exutoire %in% data$code_exutoire)
 
 # jointure
 data_me <- indices %>%
   left_join(y = bassins_no_geom) %>%
   mutate(log_richesse = log10(richesse + 1))
+
+# Etude indices
+ggplot(data = data_me,
+       aes(x = y_centroid,
+           y = shannon)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
+model_shannon <- lm(shannon ~ x_centroid + y_centroid, data_me)
+summary(model_shannon)
+
+ggplot(data = data_me,
+       aes(x = y_centroid,
+           y = simpson)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
+model_simpson <- lm(simpson ~ x_centroid + y_centroid, data_me)
+summary(model_simpson)
+
+ggplot(data = data_me,
+       aes(x = y_centroid,
+           y = pielou)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
+model_pielou <- lm(pielou ~ x_centroid + y_centroid, data_me)
+summary(model_pielou)
 
 # graphique richesse / surface
 ggplot(data = data_me %>%
@@ -99,14 +127,7 @@ ggplot(data = data_me, aes(x = alt_moy, y = richesse)) +
 # On vérifie que les variables env suivent un modèle gaussien
 bassins_verif <- bassins_no_geom %>%
   select(
-    -toponyme,
-    -canal_conn,
-    -pb,
-    -prospecte,
-    -strahler_m,
-    -pte_tp_moy,
-    -starts_with("parc"),
-    -prct_rpg
+    -toponyme,-canal_conn,-pb,-prospecte,-strahler_m,-pte_tp_moy,-starts_with("parc"),-prct_rpg
   ) %>%
   filter(!code_exutoire %in% c("exut_303", "exut_212", "exut_665", "exut_3627")) %>%
   mutate(
@@ -127,7 +148,7 @@ bassins_verif <- bassins_no_geom %>%
 # On vérifie que les variables suivent une distribution gaussienne
 ggplot(data = bassins_verif, aes(x = valeur)) +
   geom_histogram() +
-  facet_wrap( ~ variable, scales = "free")
+  facet_wrap(~ variable, scales = "free")
 
 # On construit l'ACP
 bassins_acp <- bassins_verif %>%
@@ -143,21 +164,29 @@ res <- PCA(bassins_acp)
 # ==============================================================================
 
 data_modele <- bassins_acp %>%
-  rownames_to_column(var = "code_exutoire") %>% 
+  rownames_to_column(var = "code_exutoire") %>%
   left_join(indices) %>%
-  mutate(code_exut = code_exutoire) %>% 
+  mutate(code_exut = code_exutoire) %>%
   column_to_rownames(var = "code_exut")
 
 m <-
-  lm(formula = richesse ~ pente_medi + alt_median + surf_m2 + prct_PE_CE + x_centroid + y_centroid,
-     data = data_modele)
+  lm(
+    formula = richesse ~ pente_medi + alt_median + surf_m2 + prct_PE_CE + x_centroid + y_centroid,
+    data = data_modele
+  )
 summary(m)
 plot(m)
 
-rm(bassins, bassins_verif, centroid, bassins_acp, matrice_presence, data, res)
-# Il nous reste maintenant: 
+rm(bassins,
+   bassins_verif,
+   centroid,
+   bassins_acp,
+   matrice_presence,
+   data,
+   res)
+# Il nous reste maintenant:
 # bassins_geom = codes exut + géométrie
-# bassins_non_geom = informations sur les bassins 
+# bassins_non_geom = informations sur les bassins
 # data_me = indices + informations
 # data_modele = data pour le lm
 # m = modèle lm
@@ -166,12 +195,12 @@ rm(bassins, bassins_verif, centroid, bassins_acp, matrice_presence, data, res)
 plot(m$residuals)
 summary(m$residuals)
 
-carte_residuals <- bassins_geom %>% 
-  filter(!code_exutoire %in% c("exut_303", "exut_212", "exut_665", "exut_3627")) %>% 
-  filter(code_exutoire %in% data_me$code_exutoire) %>% 
+carte_residuals <- bassins_geom %>%
+  filter(!code_exutoire %in% c("exut_303", "exut_212", "exut_665", "exut_3627")) %>%
+  filter(code_exutoire %in% data_me$code_exutoire) %>%
   cbind(m$residuals)
 
-mapview(carte_residuals, 
+mapview(carte_residuals,
         zcol = "m.residuals",
         col.regions = RColorBrewer::brewer.pal(10, "PRGn"))
 
@@ -179,42 +208,46 @@ mapview(carte_residuals,
 # Richesse spécifique régionale et locale
 # ==============================================================================
 
-inventaire <- c("Atlas", 
-                "WAMA", 
-                "Complète", 
-                "Stratifiée par Points (grand milieu)",
-                "Pêche partielle par points (grand milieu)",
-                "Pêche complète à un ou plusieurs passages", 
-                " Pêche par ambiances",
-                "partiel",
-                "complet")
+inventaire <- c(
+  "Atlas",
+  "WAMA",
+  "Complète",
+  "Stratifiée par Points (grand milieu)",
+  "Pêche partielle par points (grand milieu)",
+  "Pêche complète à un ou plusieurs passages",
+  " Pêche par ambiances",
+  "partiel",
+  "complet"
+)
 
-nb_inv <- pt_data %>% 
-  filter(type_peche %in% inventaire) %>% 
-  group_by(code_exutoire) %>% 
-  summarise(n_inventaire = n_distinct(code_coords)) %>% 
+nb_inv <- pt_data %>%
+  filter(type_peche %in% inventaire) %>%
+  group_by(code_exutoire) %>%
+  summarise(n_inventaire = n_distinct(code_coords)) %>%
   filter(n_inventaire > 4)
 
-bv_test_macro <- nb_inv %>% 
-  left_join(bv_simp_geo) %>% 
+bv_test_macro <- nb_inv %>%
+  left_join(bv_simp_geo) %>%
   st_sf()
 
 mapview(bv_test_macro)
 
-richesse <- pt_data %>% 
-  filter(code_exutoire %in% nb_inv$code_exutoire,
-         type_peche %in% inventaire,
-         statut == "Présent") %>%
-  group_by(code_coords, code_exutoire) %>% 
+richesse <- pt_data %>%
+  filter(
+    code_exutoire %in% nb_inv$code_exutoire,
+    type_peche %in% inventaire,
+    statut == "Présent"
+  ) %>%
+  group_by(code_coords, code_exutoire) %>%
   filter(annee == max(annee, na.rm = TRUE)) %>% # On prend seulement la dernière annee pour les stations échantillonnées plusieurs fois
   ungroup()
 
-richesse_loc <- richesse %>%  
-  group_by(code_coords, code_exutoire) %>% 
-  summarise(richesse_locale = n_distinct(code_espece)) %>% 
-  left_join(pt_data %>% 
-              select("code_coords", "x_wgs84", "y_wgs84"))%>% 
-  group_by(code_exutoire) %>% 
+richesse_loc <- richesse %>%
+  group_by(code_coords, code_exutoire) %>%
+  summarise(richesse_locale = n_distinct(code_espece)) %>%
+  left_join(pt_data %>%
+              select("code_coords", "x_wgs84", "y_wgs84")) %>%
+  group_by(code_exutoire) %>%
   summarise(richesse_loc_moy = mean(richesse_locale, na.rm = TRUE))
 
 # Test distribution richesse locale
@@ -225,29 +258,38 @@ ggplot(data = richesse_loc,
   geom_smooth(method = lm)
 
 
-richesse_reg <- richesse %>% 
-  group_by(code_exutoire) %>% 
+richesse_reg <- richesse %>%
+  group_by(code_exutoire) %>%
   summarise(richesse_regionale = n_distinct(code_espece))
 
-richesse_macro <- richesse_reg %>% 
+richesse_macro <- richesse_reg %>%
   left_join(richesse_loc)
 
-ggplot(data = richesse_macro %>% 
-         filter(code_exutoire != "exut_303"), 
-       aes(x = richesse_regionale, y = richesse_loc_moy)) +
+ggplot(
+  data = richesse_macro %>%
+    filter(code_exutoire != "exut_303"),
+  aes(x = richesse_regionale, y = richesse_loc_moy)
+) +
   geom_point() +
   # geom_smooth() +
-  stat_smooth(method = "lm", formula = y ~ x + I(x^2), # 0 +  pour enlever intercept, ne change rien à la courbe
-              size = 1, se = FALSE, colour = "blue") +
+  stat_smooth(
+    method = "lm",
+    formula = y ~ x + I(x ^ 2),
+    # 0 +  pour enlever intercept, ne change rien à la courbe
+    size = 1,
+    se = FALSE,
+    colour = "blue"
+  ) +
   # geom_abline(slope = 1, intercept = 0, col = "red") +
-  coord_cartesian(xlim = c(0,NA), ylim = c(0,NA))
+  coord_cartesian(xlim = c(0, NA), ylim = c(0, NA))
 
 # Methode 1 pour enlever intercept
-mod <- lm(richesse_loc_moy ~ 0 + richesse_regionale + I(richesse_regionale^2), 
-            data = richesse_macro)
+mod <-
+  lm(richesse_loc_moy ~ 0 + richesse_regionale + I(richesse_regionale ^ 2),
+     data = richesse_macro)
 
 # Méthode 2 pour enlever intercept
-# mod2 <- lm(richesse_loc_moy ~ richesse_regionale + I(richesse_regionale^2) -1, 
+# mod2 <- lm(richesse_loc_moy ~ richesse_regionale + I(richesse_regionale^2) -1,
 #            data = richesse_macro)
 
 # Quelque soit la méthode utilisée, le résultat est le même avec le summary
@@ -257,13 +299,13 @@ summary(mod)
 # Prédiction
 # ==============================================================================
 
-prediction <- mod$fitted.values %>% 
+prediction <- mod$fitted.values %>%
   as.data.frame()
 
-richesse_prediction <- cbind(richesse_macro, prediction) %>% 
+richesse_prediction <- cbind(richesse_macro, prediction) %>%
   rename("fitted_values" = ".")
 
-ggplot(richesse_prediction, aes(x = richesse_regionale,
-                       y = fitted_values)) +
+ggplot(richesse_prediction,
+       aes(x = richesse_regionale,
+           y = fitted_values)) +
   geom_point()
-
