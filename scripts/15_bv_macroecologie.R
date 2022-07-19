@@ -110,9 +110,10 @@ summary(model_pielou)
 # graphique richesse / surface
 ggplot(data = data_me %>%
          filter(richesse > 0),
-       aes(x = surf_m2, y = log_richesse)) +
+       aes(x = surf_m2, y = richesse)) +
   geom_point() +
   scale_x_log10() +
+  scale_y_log10() +
   geom_smooth(method = "loess", se = FALSE)
 
 # graphique richesse / altitude
@@ -176,6 +177,7 @@ m <-
   )
 summary(m)
 plot(m)
+
 
 rm(bassins,
    bassins_verif,
@@ -243,17 +245,17 @@ richesse <- pt_data %>%
   ungroup()
 
 richesse_loc <- richesse %>%
-  group_by(code_coords, code_exutoire) %>%
+  group_by(code_coords, code_exutoire, x_wgs84, y_wgs84) %>%
   summarise(richesse_locale = n_distinct(code_espece)) %>%
   left_join(pt_data %>%
-              select("code_coords", "x_wgs84", "y_wgs84")) %>%
-  group_by(code_exutoire) %>%
+              select(code_coords, x_wgs84, y_wgs84)) %>%
+  group_by(code_exutoire, code_coords, x_wgs84, y_wgs84) %>%
   summarise(richesse_loc_moy = mean(richesse_locale, na.rm = TRUE))
 
 # Test distribution richesse locale
 ggplot(data = richesse_loc,
        aes(x = y_wgs84,
-           y = richesse_locale)) +
+           y = richesse_loc_moy)) +
   geom_point() +
   geom_smooth(method = lm)
 
