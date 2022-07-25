@@ -3,6 +3,7 @@ library(mapview)
 library(aspe)
 library(dplyr)
 library(RColorBrewer)
+library(ggplot2)
 
 rm(list=ls())
 
@@ -40,20 +41,25 @@ coords <- point_prelevement %>%
 densite_pt <- densite2 %>% 
   left_join(coords)
 # %>%  #pour la carte ajouter ce qui suit
-#   st_as_sf(coords = c("X", "Y"),
-#         crs = 4326) 
+  # st_as_sf(coords = c("X", "Y"),
+  #       crs = 4326)
 
 ggplot(data = densite_pt,
-       aes(x = Y,
+       aes(x = X,
            y = log_densite)) + 
   geom_point() +
-  geom_smooth(method = lm)
+  geom_smooth(method = lm) +
+  labs(x = "Latitude", y = "Densité (log)")
+
+modele_densite <- lm(log_densite ~ X + Y, densite_pt)
+summary(modele_densite)
 
 # Densité au bassin
 
 load("processed_data/bassins.RData")
- bassins <- bassins %>% 
-   st_drop_geometry()
+
+# bassins <- bassins %>% 
+#    st_drop_geometry()
 
 densite_bv <- densite_pt %>%
   sf::st_join(bassins %>%
@@ -65,11 +71,21 @@ densite_bv <- densite_pt %>%
   mutate(effectif = sum(effectif),
          densite_bassin = effectif/surf_m2,
          log_densite_bassin = log(densite_bassin)) %>% 
-  filter(annee == max(annee, na.rm = TRUE)) # Pour carte ajouter ce qui suit
-# %>% 
-#   st_as_sf()
+  filter(annee == max(annee, na.rm = TRUE)) %>% 
+  select(-geometry)
+# %>% # Pour carte ajouter ce qui suit
+  # st_as_sf() 
 
+ggplot(data = densite_bv,
+       aes(x = surf_m2,
+           y = log_densite_bassin)) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  labs(x = "Longitude", y = "Densité (log)")
 
+modele_densite_bv <- lm(densite_bassin ~ surf_m2, 
+                        data = densite_bv)
+summary(modele_densite_bv)
 
 # Carte pour visualiser
 mapview(densite_pt,

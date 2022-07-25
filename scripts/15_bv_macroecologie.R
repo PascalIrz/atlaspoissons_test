@@ -26,7 +26,6 @@ data <- pt_data %>%
                       yes = 1,
                       no = 0))
 
-
 presence <- data %>%
   pivot_wider(names_from = "code_espece",
               values_from = "eff")
@@ -71,20 +70,23 @@ centroid <- st_centroid(bassins) %>%
 bassins_no_geom <- bassins %>%
   st_drop_geometry() %>%
   cbind(centroid) %>%
-  select(-X_exutoire, -X_centroid) %>%
+  select(-X_exutoire,-X_centroid) %>%
   filter(code_exutoire %in% data$code_exutoire)
 
 # jointure
 data_me <- indices %>%
   left_join(y = bassins_no_geom) %>%
-  mutate(log_richesse = log10(richesse + 1))
+  mutate(log_richesse = log10(richesse + 1)) %>% 
+  filter(shannon > 0,
+         simpson > 0)
 
 # Etude indices
 ggplot(data = data_me,
        aes(x = y_centroid,
            y = shannon)) +
   geom_point() +
-  geom_smooth(method = lm)
+  geom_smooth(method = lm) +
+  labs(x = "Latitude", y = "Indice de Shannon")
 
 model_shannon <- lm(shannon ~ x_centroid + y_centroid, data_me)
 summary(model_shannon)
@@ -93,7 +95,8 @@ ggplot(data = data_me,
        aes(x = y_centroid,
            y = simpson)) +
   geom_point() +
-  geom_smooth(method = lm)
+  geom_smooth(method = lm) +
+  labs(x = "Latitude", y = "Indice de Simpson")
 
 model_simpson <- lm(simpson ~ x_centroid + y_centroid, data_me)
 summary(model_simpson)
@@ -102,7 +105,8 @@ ggplot(data = data_me,
        aes(x = y_centroid,
            y = pielou)) +
   geom_point() +
-  geom_smooth(method = lm)
+  geom_smooth(method = lm) +
+  labs(x = "Latitude", y = "Indice de Piélou")
 
 model_pielou <- lm(pielou ~ x_centroid + y_centroid, data_me)
 summary(model_pielou)
@@ -114,21 +118,30 @@ ggplot(data = data_me %>%
   geom_point() +
   scale_x_log10() +
   scale_y_log10() +
-  geom_smooth(method = "loess", se = FALSE)
+  geom_smooth(method = "loess", se = FALSE) +
+  labs(title = "", x = "Surface du bassin-versant (m²)", y = "Richesse spécifique")
 
 # graphique richesse / altitude
 ggplot(data = data_me, aes(x = alt_moy, y = richesse)) +
   geom_point() +
   scale_y_log10() +
   scale_x_log10() +
-  geom_smooth(method = "loess", se = FALSE)
+  geom_smooth(method = "loess", se = FALSE) +
+  labs(title = "", x = "Altitude moyenne (m)", y = "Richesse spécifique")
 
 # ==============================================================================
 
 # On vérifie que les variables env suivent un modèle gaussien
 bassins_verif <- bassins_no_geom %>%
   select(
-    -toponyme,-canal_conn,-pb,-prospecte,-strahler_m,-pte_tp_moy,-starts_with("parc"),-prct_rpg
+    -toponyme,
+    -canal_conn,
+    -pb,
+    -prospecte,
+    -strahler_m,
+    -pte_tp_moy,
+    -starts_with("parc"),
+    -prct_rpg
   ) %>%
   filter(!code_exutoire %in% c("exut_303", "exut_212", "exut_665", "exut_3627")) %>%
   mutate(
@@ -142,14 +155,28 @@ bassins_verif <- bassins_no_geom %>%
                         yes = 0,
                         no = prct_PE_CE)
   ) %>%
-  pivot_longer(cols = surf_m2:prct_PE_CE,
-               names_to = "variable",
-               values_to = "valeur")
+  # rename(
+  #   "Altitude maximale (m)" = alt_max,
+  #   "Altitude médiane (m)" = alt_median,
+  #   "Altitude moyenne (m)" = alt_moy,
+  #   "Longueur tronçons topage (m)" = long_tp_m,
+  #   "Ecart type de la pente" = pente_ecty,
+  #   "Pente médiane" = pente_medi,
+  #   "Pente moyenne" = pente_moy,
+  #   "Ratio plan d'eau / surface bassin (%)" = prct_PE_CE,
+  #   "Surface bassin-versant (m²)" = surf_m2
+  # ) %>%
+  pivot_longer(
+    cols = surf_m2:prct_PE_CE,
+    names_to = "variable",
+    values_to = "valeur"
+  )
 
 # On vérifie que les variables suivent une distribution gaussienne
 ggplot(data = bassins_verif, aes(x = valeur)) +
   geom_histogram() +
-  facet_wrap(~ variable, scales = "free")
+  facet_wrap( ~ variable, scales = "free") +
+  labs(title = "", x = "", y = "")
 
 # On construit l'ACP
 bassins_acp <- bassins_verif %>%
@@ -157,8 +184,12 @@ bassins_acp <- bassins_verif %>%
               values_from = "valeur",
               values_fill = 0) %>%
   column_to_rownames(var = "code_exutoire")
+# %>%
+#   rename("Longitude" = x_centroid,
+#          "Latitude" = y_centroid)
 
 res <- PCA(bassins_acp)
+
 
 # ==============================================================================
 # regression linéaire
@@ -170,14 +201,12 @@ data_modele <- bassins_acp %>%
   mutate(code_exut = code_exutoire) %>%
   column_to_rownames(var = "code_exut")
 
-m <-
-  lm(
+m <- lm(
     formula = richesse ~ pente_medi + alt_median + surf_m2 + prct_PE_CE + x_centroid + y_centroid,
     data = data_modele
-  )
+  ) 
 summary(m)
 plot(m)
-
 
 rm(bassins,
    bassins_verif,
@@ -196,6 +225,16 @@ rm(bassins,
 
 plot(m$residuals)
 summary(m$residuals)
+
+ggplot(data = m,
+       aes(x = m$fitted.values,
+           y = m$residuals)) + 
+  geom_point() +
+  stat_smooth(se = FALSE) + 
+  labs(x = "Valeurs prédites",
+       y = "Résidus")
+
+AIC(m)
 
 carte_residuals <- bassins_geom %>%
   filter(!code_exutoire %in% c("exut_303", "exut_212", "exut_665", "exut_3627")) %>%
@@ -247,17 +286,18 @@ richesse <- pt_data %>%
 richesse_loc <- richesse %>%
   group_by(code_coords, code_exutoire, x_wgs84, y_wgs84) %>%
   summarise(richesse_locale = n_distinct(code_espece)) %>%
-  left_join(pt_data %>%
-              select(code_coords, x_wgs84, y_wgs84)) %>%
-  group_by(code_exutoire, code_coords, x_wgs84, y_wgs84) %>%
+  # left_join(pt_data %>%
+  #             select(code_coords, x_wgs84, y_wgs84)) %>%
+  group_by(code_exutoire) %>%
   summarise(richesse_loc_moy = mean(richesse_locale, na.rm = TRUE))
 
 # Test distribution richesse locale
-ggplot(data = richesse_loc,
-       aes(x = y_wgs84,
-           y = richesse_loc_moy)) +
-  geom_point() +
-  geom_smooth(method = lm)
+# ggplot(data = richesse_loc,
+#        aes(x = x_wgs84,
+#            y = richesse_loc_moy)) +
+#   geom_point() +
+#   geom_smooth(method = lm) +
+#   labs(title = "", x = "Latitude", y = "Richesse locale")
 
 
 richesse_reg <- richesse %>%
@@ -277,13 +317,13 @@ ggplot(
   stat_smooth(
     method = "lm",
     formula = y ~ x + I(x ^ 2),
-    # 0 +  pour enlever intercept, ne change rien à la courbe
     size = 1,
     se = FALSE,
     colour = "blue"
   ) +
   # geom_abline(slope = 1, intercept = 0, col = "red") +
-  coord_cartesian(xlim = c(0, NA), ylim = c(0, NA))
+  coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
+  labs(x = "Richesse régionale", y = "Richesse locale moyenne")
 
 # Methode 1 pour enlever intercept
 mod <-
@@ -310,4 +350,6 @@ richesse_prediction <- cbind(richesse_macro, prediction) %>%
 ggplot(richesse_prediction,
        aes(x = richesse_regionale,
            y = fitted_values)) +
-  geom_point()
+  geom_point() +
+  geom_smooth() +
+  labs(x = "Richesse régionale", y = "Valeurs prédites")
