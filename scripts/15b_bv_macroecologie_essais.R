@@ -108,4 +108,26 @@ summary(model_richesse)
 res <- model_richesse$residuals
 fitted <- model_richesse$fitted.values
 
+data_me_filtre <- data_me_filtre %>% 
+  cbind(res) %>% 
+  cbind(fitted)
+
+g2 <- ggplot(data = data_me_filtre,
+       aes(x = fitted,
+           y = res)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(x = "Valeur prédite",
+       y = "Résidu")
+
+g1 <- ggplot(data = data_me_filtre,
+       aes(x = res)) +
+  geom_histogram()+
+  labs(x = "Résidu",
+       y = "Fréquence")
+
+ggpubr::ggarrange(g1, g2)
+  
+
+
 
