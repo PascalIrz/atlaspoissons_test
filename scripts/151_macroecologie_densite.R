@@ -50,7 +50,7 @@ ggplot(data = densite_pt,
   geom_smooth(method = lm) +
   labs(x = "Latitude", y = "Densité (log)")
 
-modele_densite <- lm(log_densite ~ X + Y, densite_pt)
+modele_densite <- lm(log_densite ~ X + Y + ope_surface_calculee, densite_pt)
 summary(modele_densite)
 
 # Densité au bassin
@@ -65,25 +65,26 @@ densite_bv <- densite_pt %>%
                 select(code_exutoire, X_centroid)) %>% 
   st_drop_geometry %>% 
   left_join(bassins %>% 
-              select(code_exutoire, geometry,surf_m2)) %>% 
+              select(code_exutoire, geometry,surf_m2, alt_max)) %>% 
+  select(code_exutoire, effectif, annee, surf_m2, alt_max, X_centroid)%>% 
   group_by(code_exutoire) %>% 
+  filter(annee == max(annee, na.rm = TRUE),
+         !code_exutoire == "exut_303") %>% 
   mutate(effectif = sum(effectif),
          densite_bassin = effectif/surf_m2,
          log_densite_bassin = log(densite_bassin),
-         log_surf = log(surf_m2)) %>% 
-  filter(annee == max(annee, na.rm = TRUE)) %>% 
-  select(-geometry)
+         log_surf = log(surf_m2))
 # %>% # Pour carte ajouter ce qui suit
   # st_as_sf() 
 
 ggplot(data = densite_bv,
-       aes(x = log_surf,
-           y = log_densite_bassin)) + 
+       aes(x = alt_max,
+           y = densite_bassin)) + 
   geom_point() +
   geom_smooth(method = lm) +
-  labs(x = "Log de la surface du bassin versant (m²)", y = "Densité (log)")
+  labs(x = "Altitude maximale (m)", y = "Densité")
 
-modele_densite_bv <- lm(log_densite_bassin ~ log_surf, 
+modele_densite_bv <- lm(densite_bassin ~  surf_m2 + alt_max, 
                         data = densite_bv)
 summary(modele_densite_bv)
 
