@@ -220,4 +220,5 @@ data <- bind_rows(wama,
 save(data,
      ref_espece,
      bassins,
+     mes_pops,
      file = "processed_data/data.RData")
