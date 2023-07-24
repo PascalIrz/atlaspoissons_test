@@ -31,7 +31,22 @@ rsl <- rsl %>%
     filter(ope_date == max(ope_date, na.rm = TRUE)) %>% # dernière date de pêche
     sample_n(1) %>% # qq cas où 2 pêches à la même date sur le même point
   ungroup() %>% 
-  mef_ajouter_ope_env() %>% 
+  mef_ajouter_ope_env()
+
+rsl %>% 
+  pivot_longer(cols = distance_mer:temp_janvier,
+               names_to = "variable",
+               values_to = "valeur") %>%
+  mutate(valeur = ifelse(valeur == 0, NA, valeur)) %>% 
+  group_by(variable) %>% 
+  summarise(
+    mini = min(valeur, na.rm = T),
+    med = median(valeur, na.rm = T),
+    maxi = max(valeur, na.rm = T)
+  ) %>% 
+  as.data.frame()
+
+rsl <- rsl %>% 
   filter(profondeur < 1.5)
 
 # vérification du nb d'opérations par point

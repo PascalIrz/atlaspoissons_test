@@ -1,5 +1,5 @@
-##########################################################################
-# inventaires piscicoles & données géo
+# _________________
+# inventaires piscicoles & données géo -----
 # il faut homogénéiser les jeux de données pour pouvoir les empiler
 
 library(tidyverse)
@@ -11,9 +11,9 @@ library(atlaspoissons)
 
 rm(list = ls())
 
-#-------------------------------------------------------------------
-# données hydrographiques
-#-------------------------------------------------------------------
+# _________________
+# données hydrographiques ----
+# _________________
 
 # les bassins versants
 # à partir de la couche de Josselin. Si pas à la DR, monter le VPN pour accéder ; sinon 
@@ -43,9 +43,9 @@ bassins <- bassins %>%
 # save(bassins, file = "processed_data/bassins.RData")
 # load("processed_data/bassins.RData")
 
-#-------------------------------------------------------------------
-# SD
-#-------------------------------------------------------------------
+# _________________
+# SD ----
+# _________________
 
 sd_file <- "peche_georect_sd_2015_2019_20210818.shp"
 sd_path <- paste(base_repo, sd_file, sep = "/")
@@ -65,52 +65,9 @@ save(sd, file = 'processed_data/sd.RData')
 
 rm(sd_base, wama_base)
 
-#-------------------------------------------------------------------
-# fédé 56
-#-------------------------------------------------------------------
-
-fede56_file <- "peche_fede_56_20200215.shp"
-fede56_path <- paste(base_repo, fede56_file, sep = "/")
-fede56_base <- st_read(dsn = fede56_path)
-save(fede56_base, file = "raw_data/fede56.RData")
-load(file = "raw_data/fede56.RData")
-
-fede56 <- fede56_base %>% 
-  atlaspoissons::clean_fede()
-
-save(fede56, file = 'processed_data/fede56.RData')
-
-rm(fede56_base)
-
-#-------------------------------------------------------------------
-# fédé 35
-#-------------------------------------------------------------------
-# attention pas mal de pbs / coordonnées et libellés
-fede35_base <- lire_xlsx_fede35(repertoire = "raw_data/donnees_fd35", 
-                                fichier_reference = "CR op pêche elec FD35 2020-VF.xlsx")
-
-fede35 <- fede35_base %>% 
-  clean_fede35() 
-
-save(fede35, file = 'processed_data/fede35.RData')
-
-rm(fede35_base)
-
-#-------------------------------------------------------------------
-# fédé 22
-#-------------------------------------------------------------------
-fede22_base <- lire_xls_fede22("raw_data/donnees_fede22/FDPPMA 22_baseexcelpêches_scientifiques_OFB 2021.xls")
-
-fede22 <- fede22_base %>% 
-  clean_fede22() 
-
-save(fede22, file = 'processed_data/fede22.RData')
-
-rm(fede22_base)
-
-#-------------------------------------------------------------------
-# agence eau Loire Bretagne
-#-------------------------------------------------------------------
+# _________________
+# agence eau Loire Bretagne ----
+# _________________
 
 base_repo <- "raw_data"
 file <- "Export_wama_env_poiss_AELB_BZH_2016_2018.xls"
@@ -120,11 +77,13 @@ agence <- readxl::read_xls(path,
                            sheet = "TempTable") %>% 
   atlaspoissons::clean_agence()
 
-#-------------------------------------------------------------------
-# ASPE
-#-------------------------------------------------------------------
+# _________________
+# ASPE ----
+# _________________
+fichier_aspe <- misc_nom_dernier_fichier(repertoire = "../../../../../ASPE/raw_data/rdata",
+                                         pattern = "^tables")
 
-load(file = "../../../ASPE/raw_data/tables_sauf_mei_2022_05_30_12_49_01.RData")
+load(file = fichier_aspe)
 
 # ajout du code EPSG aux pop
 mes_pops <- point_prelevement %>%
@@ -160,9 +119,10 @@ aspe <- mef_creer_passerelle() %>%
 
 save(aspe, mes_pops, file = 'processed_data/aspe.RData')
 
-#-------------------------------------------------------------------
-# WAMA - NB pas de date de pêche ; codes stations sont codes sandre à "padifier"
-#-------------------------------------------------------------------
+# _________________
+# WAMA ----
+# NB pas de date de pêche ; codes stations sont codes sandre à "padifier"
+# _________________
 
 # base_repo <- "//dr35stoc/partages_$/dr35_projets/PROJETS/ATLAS_POISSONS/donnees_geographiques_reference"
 # base_repo <- "raw_data/donnees_geographiques_reference"
@@ -192,15 +152,18 @@ wama <- wama %>%
 
 save(wama, file = 'processed_data/wama.RData')
 
+# _________________
+# Fédés départementales ----
+# _________________
 
-# ---------------------------------------------------------------------
-############ empilement des fichiers + passage en sf
+fedes <- lire_fichier_fedes(chemin = "raw_data/fedes_departementales_peche.xlsx") %>% 
+  clean_fede()
+# _________________
+############ empilement des fichiers + passage en sf -----
 
 gdata::keep(wama,
             sd,
-            fede56,
-            fede35,
-            fede22,
+            fedes,
             aspe,
             agence,
             bassins,
@@ -211,14 +174,14 @@ gdata::keep(wama,
 
 data <- bind_rows(wama,
                   sd,
-                  fede56,
+                  fedes,
               #    fede35, # tout est à vérifier pour ce jeu de données
-                  fede22,
+            #      fede22,
                   aspe,
                   agence)
 
 save(data,
      ref_espece,
      bassins,
-     mes_pops,
+    # mes_pops,
      file = "processed_data/data.RData")
