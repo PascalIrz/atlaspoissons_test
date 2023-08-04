@@ -140,12 +140,10 @@ peches_inventaires <- data %>%
   group_by(type_peche) %>% 
   tally() %>% 
   ungroup() %>% 
-  mutate(inventaire = case_when(
-    str_detect(type_peche, "ndice") ~ FALSE,
-    str_detect(type_peche, "truite") ~ FALSE,
-    str_detect(type_peche, "IA ") ~ FALSE,
-    str_detect(type_peche, "partiel") ~ FALSE,
-    TRUE ~ TRUE
+  mutate(inventaire = ifelse(
+    str_detect(type_peche, "WAMA|Suivi|Stratifiée|partielle|ambiances|complète|Inventaire|Complète|Atlas"),
+    TRUE,
+    FALSE
   ))
 
 pt_absence <- data %>% 
@@ -190,8 +188,8 @@ lr_regionale <- read_ods("raw_data/LRR_RBR_08_avril_2015.ods") %>%
   select(code_espece,
          lr_regionale = LRR)
 
-truite_mer = data.frame(code_espece = "TRM",
-                        lr_regionale = "LC") 
+truite_mer <- data.frame(code_espece = "TRM",
+                         lr_regionale = "LC") 
 
 lr_regionale <- lr_regionale %>% 
   rbind(truite_mer)
@@ -229,7 +227,7 @@ data_passerelle_taxo <- data_passerelle_taxo %>%
 rm(pt_presence, pt_absence)
 
 
-# attribution sur l'ensemble du jdd des bassins (code_exutoire)
+# spatialisation des points et attribution d'un code_exutoire ----
 coords <- pt_data %>% 
   select(code_coords,
          localisation,
@@ -255,10 +253,7 @@ pt_geo <- coords %>%
          geometry) %>% 
   distinct()
 
-# ---------------------------------------------
-# Donnée au bassin
-# ---------------------------------------------
-
+## Donnée au bassin ----
 # détermination du statut par bassin x espèce chaque année + ajout effectif
 bv_data <- pt_data %>% 
   group_by(code_exutoire, code_espece, annee, esp_nom_commun) %>% 

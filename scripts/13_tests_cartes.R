@@ -16,13 +16,16 @@ load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
 mon_espece <- "Chabot"
 premiere_annee <- 2020
-derniere_annee <- 2021
+derniere_annee <- 2022
 
 # ==============================================================================
 # AU POINT
 
 pt_data_aggr <- pt_data %>% 
-  filter(annee >= premiere_annee,
+  left_join(y = data_passerelle_taxo,
+            by = "code_espece")
+  
+filter(annee >= premiere_annee,
          annee <= derniere_annee,
          esp_nom_commun == mon_espece) %>% 
   group_by(code_coords, esp_nom_commun, localisation, effectif, statut_lr_fr, fiche) %>%

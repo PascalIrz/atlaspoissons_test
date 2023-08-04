@@ -119,10 +119,9 @@ aspe <- mef_creer_passerelle() %>%
 
 save(aspe, mes_pops, file = 'processed_data/aspe.RData')
 
-# _________________
+
 # WAMA ----
 # NB pas de date de pêche ; codes stations sont codes sandre à "padifier"
-# _________________
 
 # base_repo <- "//dr35stoc/partages_$/dr35_projets/PROJETS/ATLAS_POISSONS/donnees_geographiques_reference"
 # base_repo <- "raw_data/donnees_geographiques_reference"
@@ -152,14 +151,13 @@ wama <- wama %>%
 
 save(wama, file = 'processed_data/wama.RData')
 
-# _________________
-# Fédés départementales ----
-# _________________
 
+# Fédés départementales ----
 fedes <- lire_fichier_fedes(chemin = "raw_data/fedes_departementales_peche.xlsx") %>% 
   clean_fede()
-# _________________
-############ empilement des fichiers + passage en sf -----
+
+
+############ empilement des fichiers et sauvegarde -----
 
 gdata::keep(wama,
             sd,
@@ -175,13 +173,10 @@ gdata::keep(wama,
 data <- bind_rows(wama,
                   sd,
                   fedes,
-              #    fede35, # tout est à vérifier pour ce jeu de données
-            #      fede22,
                   aspe,
                   agence)
 
 save(data,
      ref_espece,
      bassins,
-    # mes_pops,
      file = "processed_data/data.RData")
