@@ -198,9 +198,9 @@ lr_regionale <- lr_regionale %>%
 # passerelle taxonomique + liens fiches INPN
 # ------------------------------
 
-data("data_passerelle_taxo")
+# data("data_passerelle_taxo")
 
-data_passerelle_taxo <- data_passerelle_taxo %>% 
+passerelle_taxo <- data_passerelle_taxo %>% 
   rename(code_espece = esp_code_alternatif) %>% 
   left_join(y = ref_espece %>% 
               select(code_espece,
@@ -218,7 +218,7 @@ data_passerelle_taxo <- data_passerelle_taxo %>%
                               esp_nom_commun,
                               "</a>"))
 
-data_passerelle_taxo <- data_passerelle_taxo %>% 
+passerelle_taxo <- passerelle_taxo %>% 
   left_join(lr_nationale) %>%  # Ajout statut liste rouge (France)
   left_join(lr_regionale) %>%  # Ajout statut liste rouge (Bretagne)
   expliciter_statut_lr(var = lr_nationale) %>%  
@@ -268,5 +268,5 @@ save(pt_data,
      pt_geo,
      bv_data,
      bv_simp_geo,
-     data_passerelle_taxo,
+     passerelle_taxo,
      file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
