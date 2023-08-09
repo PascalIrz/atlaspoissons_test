@@ -1,4 +1,7 @@
+load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
+library(tidyverse)
+library(sf)
 
 # liste des bassins avec au moins une pêche
 liste_bassins_mini_une_peche <- pt_data %>% 
@@ -26,14 +29,12 @@ liste_stations_tot <- pt_geo %>%
 
 # nb années de pêche par station
 liste_stations_mini_une_peche <- pt_data %>%
- # st_drop_geometry() %>% 
   group_by(code_station) %>% 
   summarise(n_annees = n_distinct(annee)) %>% 
   ungroup()
 
 # nb stations par bassin
 n_stations_par_bassin <- pt_data %>% 
- # st_drop_geometry() %>% 
   group_by(code_exutoire) %>% 
   summarise(n_stations_bassin = n_distinct(code_station)) %>% 
   ungroup()

@@ -5,7 +5,6 @@ library(aspe)
 library(atlaspoissons)
 library(readxl)
 library(aspe)
-# data(passerelle_taxo)
 library(readODS)
 
 rm(list = ls())
@@ -91,7 +90,6 @@ bv_simp_geo <- bassins %>%
 # ------------------------------
 # mise en forme du jeu de données au point
 # ------------------------------
-
 data <- data %>%
   atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
   mutate(code_coords = paste(round(x_wgs84, 6),
@@ -100,7 +98,8 @@ data <- data %>%
          date_peche = as.Date(date_peche),
          ope_id = paste0(code_coords,
                          code_station,
-                         date_peche),
+                         date_peche,
+                         annee),
          annee = as.integer(annee)) %>%
   mutate_if(is.character, as.factor) %>%
   group_by_at(vars(-effectif)) %>% 
@@ -113,6 +112,7 @@ data <- data %>%
 # ------------------------------
 # présences au point
 # ------------------------------
+# pour les présences on ne conserve l'ensemble des protocoles
 pt_presence <- data %>% 
   select(-code_exutoire) %>% 
   distinct() %>% 
@@ -142,8 +142,8 @@ peches_inventaires <- data %>%
   ungroup() %>% 
   mutate(inventaire = ifelse(
     str_detect(type_peche, "WAMA|Suivi|Stratifiée|partielle|ambiances|complète|Inventaire|Complète|Atlas"),
-    TRUE,
-    FALSE
+    yes = TRUE,
+    no = FALSE
   ))
 
 pt_absence <- data %>% 

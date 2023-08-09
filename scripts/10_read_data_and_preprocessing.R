@@ -25,8 +25,9 @@ bv_path <- paste(base_repo, bv_file, sep = "/")
 # comme il y avait pb d'encodage UTF-8 avec st_read(), utilisation de rgdal::readOGR() puis st_as_sf()
 # c'est sans doute améliorable
 bassins <- rgdal::readOGR(bv_path,
-                          use_iconv = TRUE,
-                          encoding = "UTF-8")
+                         # use_iconv = TRUE,
+                         # encoding = "UTF-8"
+                         )
 
 bassins@data <-  bassins@data %>%
   dplyr::mutate_if(is.character, iconv, 'UTF-8')
@@ -39,6 +40,25 @@ bassins <- bassins %>%
   filter(TRUE) %>% 
   st_make_valid() %>% 
   mutate_if(is.character, as.factor)
+
+
+# bassins2 <- sf::st_read(bv_path) %>% 
+#   as.data.frame() %>% 
+#   dplyr::mutate_if(is.character, iconv, 'UTF-8') %>% 
+#   mutate(pb = iconv(pb, "UTF-8"))
+#   
+# mutate_if(is.character, stringi::stri_encode, from = "UTF-8", to = "UTF-8")
+# 
+# bassins2 %>% 
+#   filter(IDD == "exut_11") %>% 
+#   pull(pb) %>% 
+#   iconv(to = "UTF-8")
+# 
+# bassins3 <- terra::vect(bv_path) %>% 
+#   st_as_sf() %>% 
+#   dplyr::mutate_if(is.character, iconv, 'UTF-8')
+# 
+# bassins4 <- sf::read_sf(bv_path, options="ENCODING=UTF-8") 
 
 # save(bassins, file = "processed_data/bassins.RData")
 # load("processed_data/bassins.RData")
