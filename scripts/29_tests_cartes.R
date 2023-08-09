@@ -14,17 +14,16 @@ load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
 # Filtration des données pour choisir espèces et années
 
-mon_espece <- "Chabot"
-premiere_annee <- 2014
-derniere_annee <- 2022
+mon_espece <- "Epinochette"
+#derniere_annee <- 2022
 
 # ==============================================================================
 # AU POINT
 
 pt_data_aggr <- pt_data %>% 
   left_join(y = passerelle_taxo) %>% 
-  filter(annee >= premiere_annee,
-         annee <= derniere_annee,
+  filter(#annee >= premiere_annee,
+         #annee <= derniere_annee,
          esp_nom_commun == mon_espece) %>% 
   group_by(code_coords, esp_nom_commun, localisation, effectif, lr_nationale, lr_regionale, fiche_inpn2) %>%
     summarise(statut = max(statut)) %>% # car les statuts sont un facteur ordonné "non detect" < "absence" < "presence"

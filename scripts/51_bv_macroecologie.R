@@ -7,36 +7,21 @@ library(mapview)
 
 rm(list = ls())
 
-load(file = "processed_data/data.RData")
+#load(file = "processed_data/data.RData")
 load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
 
-# ==============================================================================
-
-rm(data, ref_espece)
-
-bassins_geom <- bassins %>%
-  select(code_exutoire, geometry)
-
-data <- pt_data %>%
-  select(code_exutoire, code_espece, effectif) %>%
-  group_by(code_exutoire, code_espece) %>%
-  summarise(eff = sum(effectif)) %>%
-  ungroup() %>%
-  mutate(eff = ifelse(eff > 0,
-                      yes = 1,
-                      no = 0))
-
-presence <- data %>%
+# presence ----
+presence <- bv_faune %>% 
+  filter(statut != "Non détecté") %>% 
+  mutate(statut = ifelse(statut == "Présent", 1, 0)) %>% 
+  group_by(code_exutoire, code_espece) %>% 
+  summarise(statut = max(statut)) %>% 
+  ungroup() %>% 
   pivot_wider(names_from = "code_espece",
-              values_from = "eff")
+              values_from = "statut")
 
-
-
-# rm(pt_data, bv_data, bv_simp_geo, pt_geo)
-
-# ==============================================================================
-# Préparation du tableau de données
-# ==============================================================================
+# Préparation du tableau de données ====
+# ________________________________________
 
 # Matrice des presences
 
@@ -62,16 +47,15 @@ indices <- matrice_presence %>%
 #   summarise(abondance = sum(eff))
 
 # création objet bassins
-centroid <- st_centroid(bassins) %>%
+centroid <- st_centroid(bv_simp_geo) %>%
   st_coordinates() %>%
   as.data.frame %>%
   set_names(c("x_centroid", "y_centroid"))
 
-bassins_no_geom <- bassins %>%
-  st_drop_geometry() %>%
+
+bassins_no_geom <- bv_env %>%
   cbind(centroid) %>%
-  select(-X_exutoire,-X_centroid) %>%
-  filter(code_exutoire %in% data$code_exutoire)
+  filter(code_exutoire %in% bv_faune$code_exutoire)
 
 # jointure
 data_me <- indices %>%
@@ -153,7 +137,9 @@ bassins_verif <- bassins_no_geom %>%
     # on fait un arcsin pour les pourcentages
     prct_PE_CE = ifelse(is.na(prct_PE_CE),
                         yes = 0,
-                        no = prct_PE_CE)
+                        no = prct_PE_CE),
+    X_exutoire = as.numeric(X_exutoire),
+    X_centroid = as.numeric(X_centroid)
   ) %>%
   # rename(
   #   "Altitude maximale (m)" = alt_max,

@@ -42,6 +42,8 @@ bassins <- bassins %>%
   mutate_if(is.character, as.factor)
 
 
+
+
 # bassins2 <- sf::st_read(bv_path) %>% 
 #   as.data.frame() %>% 
 #   dplyr::mutate_if(is.character, iconv, 'UTF-8') %>% 

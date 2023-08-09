@@ -11,13 +11,17 @@ rm(list = ls())
 
 load(file = "processed_data/data.RData")
 
-# Liste des espèces à supprimer
+
+# Délimitation de la période temporelle ----
+premiere_annee <- 2014
+
+# Liste des espèces à supprimer ----
 especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
                          "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC",
                          "GRV", "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX",
                          "CYP", "GAX", "HBG", "HYC", "LPX", "PFL")
 
-# renommage du référentiel taxo + corrections sur les noms communs
+# renommage du référentiel taxo + corrections sur les noms communs ----
 ref_espece <- ref_espece %>% 
   rename(code_espece = esp_code_alternatif) %>% 
   mutate(esp_nom_commun = case_when(
@@ -30,13 +34,8 @@ ref_espece <- ref_espece %>%
     TRUE ~ esp_nom_commun
   ))
 
-# simplification du découpage en bassins et corrections sur les toponymes
+# simplification du découpage en bassins et corrections sur les toponymes ----
 bv_simp_geo <- bassins %>% 
-  select(code_exutoire,
-         toponyme,
-         geometry) %>% 
-  st_simplify(dTolerance = 50,
-              preserveTopology = T) %>% 
   mutate(toponyme = as.character(toponyme), # indispensable pour éviter des bugs dans l'appli
          toponyme = str_to_title(toponyme),
          toponyme = str_replace_all(toponyme,
@@ -87,9 +86,18 @@ bv_simp_geo <- bassins %>%
                     "Bassin non nommé",
                     toponyme))
 
-# ------------------------------
-# mise en forme du jeu de données au point
-# ------------------------------
+bv_env <- bv_simp_geo %>% 
+  sf::st_drop_geometry()
+
+bv_simp_geo <- bv_simp_geo %>% 
+  select(code_exutoire,
+       toponyme,
+       geometry) %>% 
+  st_simplify(dTolerance = 50,
+              preserveTopology = T)
+
+# mise en forme du jeu de données au point ----
+# _____________________________________
 data <- data %>%
   atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
   mutate(code_coords = paste(round(x_wgs84, 6),
@@ -109,9 +117,9 @@ data <- data %>%
          is.na(annee)) %>% 
   droplevels()
 
-# ------------------------------
-# présences au point
-# ------------------------------
+
+# présences au point ---------
+# _________________________________
 # pour les présences on ne conserve l'ensemble des protocoles
 pt_presence <- data %>% 
   select(-code_exutoire) %>% 
@@ -132,9 +140,9 @@ pt_presence <- pt_presence %>%
          effectif > 0) %>% 
   mutate(statut = "Présent")
 
-# ------------------------------
-# absences au point
-# ------------------------------
+
+# absences au point --------------
+# ____________________________
 # caractérisation des pêches selon le protocole en inventaire ou non
 peches_inventaires <- data %>% 
   group_by(type_peche) %>% 
@@ -157,9 +165,9 @@ pt_absence <- data %>%
   )) %>%
   select(names(pt_presence))
 
-# ------------------------------
-# assemblage des données au point
-# ------------------------------
+
+# assemblage des données au point ----
+# __________________________________
 pt_data <- rbind(pt_presence, pt_absence) %>% 
   mutate(
     statut = as.factor(statut),
@@ -175,9 +183,9 @@ pt_data <- pt_data %>%
   mutate(statut = factor(statut, ordered = T)) # nécessaire plus loin pour summarise (.. = max(statut)) 
 
 
-# ------------------------------
-# listes rouges
-# ------------------------------
+
+# listes rouges -----
+# _________________________
 
 lr_nationale <- data_liste_rouge %>% 
   select(code_espece = esp_code_alternatif,
@@ -194,9 +202,9 @@ truite_mer <- data.frame(code_espece = "TRM",
 lr_regionale <- lr_regionale %>% 
   rbind(truite_mer)
 
-# ------------------------------
-# passerelle taxonomique + liens fiches INPN
-# ------------------------------
+
+# passerelle taxonomique + liens fiches INPN -----
+# __________________________________________________
 
 # data("data_passerelle_taxo")
 
@@ -228,6 +236,7 @@ rm(pt_presence, pt_absence)
 
 
 # spatialisation des points et attribution d'un code_exutoire ----
+# _______________________________________________________________
 coords <- pt_data %>% 
   select(code_coords,
          localisation,
@@ -241,10 +250,12 @@ pt_data <- pt_data %>%
            remove = FALSE) %>% 
   sf::st_join(bassins %>% 
                 select(code_exutoire)) %>% # au cas où il resterait des stations hors des bassins
-  filter(!is.na(code_exutoire)) %>% 
+  filter(!is.na(code_exutoire),
+         annee >= premiere_annee) %>% 
   sf::st_drop_geometry()
 
-# création de l'objet sf des points
+# création de l'objet sf des points ----
+# _________________________________________
 pt_geo <- coords %>% 
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326) %>% 
@@ -253,9 +264,10 @@ pt_geo <- coords %>%
          geometry) %>% 
   distinct()
 
-## Donnée au bassin ----
+# Donnée au bassin ----
 # détermination du statut par bassin x espèce chaque année + ajout effectif
-bv_data <- pt_data %>% 
+# _______________________________________________________________________
+bv_faune <- pt_data %>% 
   group_by(code_exutoire, code_espece, annee, esp_nom_commun) %>% 
     summarise(statut = max(statut)) %>% 
   ungroup() %>% 
@@ -266,7 +278,8 @@ bv_data <- pt_data %>%
 
 save(pt_data,
      pt_geo,
-     bv_data,
+     bv_faune,
+     bv_env,
      bv_simp_geo,
      passerelle_taxo,
      file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
