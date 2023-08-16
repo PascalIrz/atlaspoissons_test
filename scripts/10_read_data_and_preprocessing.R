@@ -136,10 +136,45 @@ mes_pops <- mes_pops %>%
 
 # exclusion des points qui ne sont pas dans nos bassins + nettoyage
 aspe <- mef_creer_passerelle() %>% 
-  filter(pop_id %in% mes_pops) %>% 
+  filter(pop_id %in% mes_pops)
+
+# données environnementales au point
+aspe_env <- aspe %>% 
+  mef_ajouter_ope_desc_peche() %>% 
+  mef_ajouter_ope_env() %>% 
+  mef_ajouter_ipr() %>% 
+  mef_ajouter_ope_date() %>% 
+  select(sta_id:ope_id,
+         ope_date,
+         annee,
+         odp_longueur,
+         odp_largeur_lame_eau,
+         distance_mer:temp_janvier) %>% 
+  distinct() %>% 
+  mef_ajouter_type_protocole() %>% 
+  filter(str_detect(pro_libelle, "Pêche")) # seulement les inventaires
+
+# les valeurs nulles dans certaines variables sont en fait des NA
+# comme certaines années il y a des valeurs manquantes on agrège au point en moyennant
+aspe_env <- aspe_env %>% 
+  select(pop_id,
+         odp_longueur:temp_janvier) %>% 
+  pivot_longer(cols = odp_longueur:temp_janvier) %>%
+  filter(!(name %in% c("odp_longueur", "odp_largeur_lame_eau", "surface_bv", "distance_source", "largeur",
+                      "pente", "profondeur", "temp_juillet", "temp_janvier") & value == 0)
+  ) %>% 
+  group_by(pop_id, name) %>% 
+    summarise_all(mean, na.rm = T) %>% 
+  ungroup() %>% 
+  pivot_wider(#id_cols = pop_id,
+              names_from = name,
+              values_from = value,
+              values_fill = NA)
+
+aspe <- aspe %>% 
   clean_aspe()
 
-save(aspe, mes_pops, file = 'processed_data/aspe.RData')
+save(aspe, mes_pops, aspe_env, file = 'processed_data/aspe.RData')
 
 
 # WAMA ----
