@@ -9,3 +9,4 @@ rm(list = ls())
 
 #load(file = "processed_data/data.RData")
 load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
+

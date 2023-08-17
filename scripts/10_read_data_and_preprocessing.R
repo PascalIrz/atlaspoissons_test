@@ -68,7 +68,7 @@ bassins <- bassins %>%
 # _________________
 # SD ----
 # _________________
-
+base_repo <- "raw_data/donnees_geographiques_reference"
 sd_file <- "peche_georect_sd_2015_2019_20210818.shp"
 sd_path <- paste(base_repo, sd_file, sep = "/")
 sd_base <- rgdal::readOGR(dsn = sd_path)
@@ -156,20 +156,30 @@ aspe_env <- aspe %>%
 
 # les valeurs nulles dans certaines variables sont en fait des NA
 # comme certaines années il y a des valeurs manquantes on agrège au point en moyennant
-aspe_env <- aspe_env %>% 
+aspe_env <- aspe_env %>%
   select(pop_id,
-         odp_longueur:temp_janvier) %>% 
+         odp_longueur:temp_janvier) %>%
   pivot_longer(cols = odp_longueur:temp_janvier) %>%
-  filter(!(name %in% c("odp_longueur", "odp_largeur_lame_eau", "surface_bv", "distance_source", "largeur",
-                      "pente", "profondeur", "temp_juillet", "temp_janvier") & value == 0)
-  ) %>% 
-  group_by(pop_id, name) %>% 
-    summarise_all(mean, na.rm = T) %>% 
-  ungroup() %>% 
+  filter(!(
+    name %in% c(
+      "odp_longueur",
+      "odp_largeur_lame_eau",
+      "surface_bv",
+      "distance_source",
+      "largeur",
+      "pente",
+      "profondeur",
+      "temp_juillet",
+      "temp_janvier"
+    ) & value == 0
+  )) %>%
+  group_by(pop_id, name) %>%
+  summarise_all(mean, na.rm = T) %>%
+  ungroup() %>%
   pivot_wider(#id_cols = pop_id,
-              names_from = name,
-              values_from = value,
-              values_fill = NA)
+    names_from = name,
+    values_from = value,
+    values_fill = NA)
 
 aspe <- aspe %>% 
   clean_aspe()

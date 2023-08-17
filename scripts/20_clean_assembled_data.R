@@ -113,7 +113,7 @@ data <- data %>%
   group_by_at(vars(-effectif)) %>% 
     summarise(effectif = sum(effectif, na.rm = TRUE)) %>% 
   ungroup() %>% 
-  filter(annee > 2010 | # suppression des données anciennes de aspe / wama
+  filter(annee > premiere_annee | # suppression des données anciennes de aspe / wama
          is.na(annee)) %>% 
   droplevels()
 
@@ -174,7 +174,7 @@ pt_data <- rbind(pt_presence, pt_absence) %>%
     statut = fct_relevel(statut, c("Non détecté", "Absent", "Présent")),
     statut = factor(statut, ordered = T)) %>% 
   droplevels() %>% 
-  select(-date_peche, -ope_id)
+  select(-ope_id)
 
 pt_data <- pt_data %>% 
   left_join(y = ref_espece %>% 
@@ -268,7 +268,7 @@ pt_geo <- coords %>%
 # détermination du statut par bassin x espèce chaque année + ajout effectif
 # _______________________________________________________________________
 bv_faune <- pt_data %>% 
-  group_by(code_exutoire, code_espece, annee, esp_nom_commun) %>% 
+  group_by(code_exutoire, code_espece, annee) %>% 
     summarise(statut = max(statut)) %>% 
   ungroup() %>% 
   mutate(layerId = code_exutoire)
@@ -282,4 +282,5 @@ save(pt_data,
      bv_env,
      bv_simp_geo,
      passerelle_taxo,
-     file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
+     #file = "../../atlas_poissons_app/atlas/donnees_appli.RData"
+     file = "processed_data/data2.rda")
