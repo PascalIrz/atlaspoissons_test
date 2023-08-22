@@ -1,0 +1,254 @@
+---
+title: "Macroécologie au point"
+author: "OFB"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+#  bookdown::word_document2
+always_allow_html: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=F, warning = F)
+```
+
+# Chargement des packages et des données
+
+```{r}
+library(tidyverse)
+library(sf)
+library(vegan)
+library(corrplot)
+library(factoextra)
+library(FactoMineR)
+library(mapview)
+library(aspe)
+library(COGiter)
+```
+
+
+```{r}
+load(file = "../processed_data/data2.rda")
+load(file = '../processed_data/aspe.RData')
+```
+
+# Calcul des indicateurs de diversité au point
+
+## Sélection des données
+
+Seules les inventaires de la base Aspe sont pris en compte. On ne conserve que la dernière année de données pour chaque point.
+
+```{r}
+pt_effectif <- aspe %>% 
+  filter(str_detect(type_peche, pattern = "partielle|ambiances|complète"),
+         effectif > 0) %>% 
+  group_by(code_station,
+           code_point,
+           localisation,
+           x_wgs84,
+           y_wgs84,
+           code_exutoire) %>% 
+  filter(date_peche == max(date_peche)) %>% 
+  group_by(across(-effectif)) %>% 
+  summarise(effectif = sum(effectif)) %>% 
+  ungroup()
+
+pt_effectif %>% 
+  count(type_peche)
+```
+
+## Calcul des indices
+
+On crée une matrice des effectifs par espèce (en colonne) pour chaque point (en ligne), puis on calcule les indices avec le package `vegan`.
+
+```{r}
+pt_effectif_matrice <- pt_effectif %>% 
+  pivot_wider(id_cols = code_point,
+              names_from = code_espece,
+              values_from = effectif,
+              values_fill = 0) %>% 
+  column_to_rownames(var = "code_point")
+
+
+# Calcul des indices
+pt_indices <- pt_effectif_matrice %>%
+  transmute(
+    richesse = specnumber(.),
+    shannon = diversity(.),
+    simpson = diversity(., index = "simpson"),
+    pielou = shannon / log(richesse)
+  ) %>%
+  rownames_to_column(var = "code_point")
+```
+
+## Distribution des indices
+
+```{r}
+pt_indices_long <- pt_indices %>% 
+  pivot_longer(richesse:pielou)
+
+pt_indices_long %>% 
+  ggplot(aes(x = value)) + 
+  geom_density(fill = "darkgreen",
+               alpha = 0.2) +
+  scale_x_continuous(limits = c(0, NA)) +
+  facet_wrap(~name, scales = "free")
+```
+
+
+## Cartographie des indices
+
+```{r, fig.width = 5, fig.height = 12}
+test <- aspe_pops_geo %>%
+  rename(code_point = pop_id) %>% 
+  right_join(pt_indices_long %>% 
+               mutate(code_point = as.integer(code_point)))
+
+pal <- wesanderson::wes_palette("Zissou1", 100, type = "continuous")
+
+bg <- COGiter::departements_metro_geo %>% 
+  filter(DEP %in% c("22", "29", "35", "56"))
+
+g <- purrr::map(.x = unique(test$name),
+                .f = function(x) {
+                            ggplot() +
+                    geom_sf(data = bg) +
+                    geom_sf(data = filter(test, name == x),
+                                   aes(col = value)) +
+                    ggtitle(x) +
+                    scale_color_gradientn(colours = pal,
+                                          name = "")
+                })
+
+g2 <- cowplot::plot_grid(plotlist = g,
+                         ncol = 1)
+
+g2
+```
+
+
+# Préparation du jeu de données
+
+On veut regrouper dans un dataframe les indices + les coordonnées des points + les variables environnementales en vue de l'étape de modélisation.
+
+Les observations incomplètes sont supprimées car elles ne pourront pas être modélisées.
+
+```{r}
+pt_indices <- pt_indices %>% 
+  mutate(code_point = as.integer(code_point)) %>% 
+  left_join(y = aspe_env,
+            by = c("code_point" = "pop_id")) %>% 
+  left_join(y = aspe_pops_coords,
+            by = c("code_point" = "pop_id")) %>% 
+  left_join(y = pt_effectif %>% 
+              select(code_point, code_exutoire) %>% 
+              distinct()) %>%
+  # left_join(y = bv_env %>%
+  #             select(code_exutoire, surf_bv_tot = surf_m2))
+  select(code_point:altitude,
+         dist_source = distance_source,
+         surf_bv = surface_bv,
+         largeur = odp_largeur_lame_eau,
+         pente,
+         x_wgs84,
+         y_wgs84,
+         temp_01 = temp_janvier,
+         temp_07 = temp_juillet)
+
+colSums(is.na(pt_indices)) # to remove variables with too many NAs
+
+pt_indices <- pt_indices %>%  
+  drop_na(altitude:temp_07)
+
+colSums(is.na(pt_indices))
+```
+
+Pielou n'est pas calculé sur les points monospécifiques car il a au dénominateur le log de la richesse.
+
+## Examen des variables explicatives
+
+```{r}
+library("PerformanceAnalytics")
+chart.Correlation(pt_indices %>% select(altitude:y_wgs84),
+                  histogram = TRUE,
+                  pch = 19)
+```
+
+Pour se rapprocher de distributions normales, on va log-transformer les variables à part des coordonnées.
+
+```{r}
+pt_indices <- pt_indices %>%
+  mutate_at(vars(dist_source:pente, starts_with("temp")), log) %>% 
+  mutate(altitude = log(1 + altitude))
+
+chart.Correlation(pt_indices %>% select(altitude:y_wgs84),
+                  histogram = TRUE,
+                  pch = 19)
+```
+
+Les distributions sont beaucoup plus satisfaisantes. Les variables `dist_source`, `surf_bv` et `largeur` sont trop corrélées pour être utilisées telles quelles dans les modèles donc on va les regrouper en une variable synthétique par ACP.
+
+## Construction de l'indice de taille du cours d'eau
+
+```{r}
+taille <- FactoMineR::PCA(pt_indices %>% select(dist_source, surf_bv, largeur))
+taille <- taille$ind$coord[,1]
+```
+
+Ajout de la variable `taille` au dataframe.
+
+```{r}
+pt_indices <- pt_indices %>% 
+  cbind(taille)
+```
+
+Vérification.
+
+```{r}
+cor(pt_indices %>% select(taille, dist_source, surf_bv, largeur))
+```
+
+# Modélisation
+
+On construit un modèle avec l'ensemble des variables explicatives, puis on le simplifie par une procédure pas à pas au moyen de la fonction `stepAIC()` du package `MASS`.
+
+```{r}
+mod <- lm(richesse ~ altitude +
+            taille +
+            pente +
+            temp_01 +
+            temp_07 +
+            x_wgs84 +
+            y_wgs84,
+          data = pt_indices)
+
+summary(mod)
+
+mod2 <- MASS::stepAIC(mod)
+
+summary(mod2)
+```
+
+On observe donc que la les stations sont d'autant plus riches qu'elles sont :
+
+- sur des cours d'eau grands, peu pentus, frais en hiver et chauds en été
+- localisées au sud de l'aire étudiée
+
+Bien que le paramètre de longidude `x_wgs84` ne soit pas retenu par la procédure de simplification, les deux paramètres de température correspondent à un gradient de longitude. En effet sur l'Ouest de la zone d'étude les hivers sont plus doux et les étés plus frais qu'à l'Est.
+
+Vérifications graphiques :
+
+```{r}
+plot(mod2)
+```
+
+```{r}
+
+```
+
+
+
+
+

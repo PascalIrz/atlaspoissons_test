@@ -1,0 +1,15 @@
+---
+title: "Untitled"
+author: "AFB - DIR Bretagne Pays de la Loire"
+date: "19/11/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The glacial isostatic adjustment, where it has occurred, can generate some local patterns of uplift following ice melt periods. Shennan et al. 2018, show such events dramatically uplifted the centre of the Celtic ice sheet after the last glacial maximum. However, they also show that the southern British coast is exempt of this concern. The study area, being further South, obviously also is.
+

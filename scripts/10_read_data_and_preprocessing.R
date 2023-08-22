@@ -1,5 +1,5 @@
-##########################################################################
-# inventaires piscicoles & données géo
+# _________________
+# inventaires piscicoles & données géo -----
 # il faut homogénéiser les jeux de données pour pouvoir les empiler
 
 library(tidyverse)
@@ -11,9 +11,9 @@ library(atlaspoissons)
 
 rm(list = ls())
 
-#-------------------------------------------------------------------
-# données hydrographiques
-#-------------------------------------------------------------------
+# _________________
+# données hydrographiques ----
+# _________________
 
 # les bassins versants
 # à partir de la couche de Josselin. Si pas à la DR, monter le VPN pour accéder ; sinon 
@@ -25,8 +25,9 @@ bv_path <- paste(base_repo, bv_file, sep = "/")
 # comme il y avait pb d'encodage UTF-8 avec st_read(), utilisation de rgdal::readOGR() puis st_as_sf()
 # c'est sans doute améliorable
 bassins <- rgdal::readOGR(bv_path,
-                          use_iconv = TRUE,
-                          encoding = "UTF-8")
+                         # use_iconv = TRUE,
+                         # encoding = "UTF-8"
+                         )
 
 bassins@data <-  bassins@data %>%
   dplyr::mutate_if(is.character, iconv, 'UTF-8')
@@ -40,13 +41,34 @@ bassins <- bassins %>%
   st_make_valid() %>% 
   mutate_if(is.character, as.factor)
 
+
+
+
+# bassins2 <- sf::st_read(bv_path) %>% 
+#   as.data.frame() %>% 
+#   dplyr::mutate_if(is.character, iconv, 'UTF-8') %>% 
+#   mutate(pb = iconv(pb, "UTF-8"))
+#   
+# mutate_if(is.character, stringi::stri_encode, from = "UTF-8", to = "UTF-8")
+# 
+# bassins2 %>% 
+#   filter(IDD == "exut_11") %>% 
+#   pull(pb) %>% 
+#   iconv(to = "UTF-8")
+# 
+# bassins3 <- terra::vect(bv_path) %>% 
+#   st_as_sf() %>% 
+#   dplyr::mutate_if(is.character, iconv, 'UTF-8')
+# 
+# bassins4 <- sf::read_sf(bv_path, options="ENCODING=UTF-8") 
+
 # save(bassins, file = "processed_data/bassins.RData")
 # load("processed_data/bassins.RData")
 
-#-------------------------------------------------------------------
-# SD
-#-------------------------------------------------------------------
-
+# _________________
+# SD ----
+# _________________
+base_repo <- "raw_data/donnees_geographiques_reference"
 sd_file <- "peche_georect_sd_2015_2019_20210818.shp"
 sd_path <- paste(base_repo, sd_file, sep = "/")
 sd_base <- rgdal::readOGR(dsn = sd_path)
@@ -65,52 +87,9 @@ save(sd, file = 'processed_data/sd.RData')
 
 rm(sd_base, wama_base)
 
-#-------------------------------------------------------------------
-# fédé 56
-#-------------------------------------------------------------------
-
-fede56_file <- "peche_fede_56_20200215.shp"
-fede56_path <- paste(base_repo, fede56_file, sep = "/")
-fede56_base <- st_read(dsn = fede56_path)
-save(fede56_base, file = "raw_data/fede56.RData")
-load(file = "raw_data/fede56.RData")
-
-fede56 <- fede56_base %>% 
-  atlaspoissons::clean_fede()
-
-save(fede56, file = 'processed_data/fede56.RData')
-
-rm(fede56_base)
-
-#-------------------------------------------------------------------
-# fédé 35
-#-------------------------------------------------------------------
-# attention pas mal de pbs / coordonnées et libellés
-fede35_base <- lire_xlsx_fede35(repertoire = "raw_data/donnees_fd35", 
-                                fichier_reference = "CR op pêche elec FD35 2020-VF.xlsx")
-
-fede35 <- fede35_base %>% 
-  clean_fede35() 
-
-save(fede35, file = 'processed_data/fede35.RData')
-
-rm(fede35_base)
-
-#-------------------------------------------------------------------
-# fédé 22
-#-------------------------------------------------------------------
-fede22_base <- lire_xls_fede22("raw_data/donnees_fede22/FDPPMA 22_baseexcelpêches_scientifiques_OFB 2021.xls")
-
-fede22 <- fede22_base %>% 
-  clean_fede22() 
-
-save(fede22, file = 'processed_data/fede22.RData')
-
-rm(fede22_base)
-
-#-------------------------------------------------------------------
-# agence eau Loire Bretagne
-#-------------------------------------------------------------------
+# _________________
+# agence eau Loire Bretagne ----
+# _________________
 
 base_repo <- "raw_data"
 file <- "Export_wama_env_poiss_AELB_BZH_2016_2018.xls"
@@ -120,19 +99,21 @@ agence <- readxl::read_xls(path,
                            sheet = "TempTable") %>% 
   atlaspoissons::clean_agence()
 
-#-------------------------------------------------------------------
-# ASPE
-#-------------------------------------------------------------------
+# _________________
+# ASPE ----
+# _________________
+fichier_aspe <- misc_nom_dernier_fichier(repertoire = "../../../../../ASPE/raw_data/rdata",
+                                         pattern = "^tables")
 
-load(file = "../../../ASPE/raw_data/tables_sauf_mei_2022_05_30_12_49_01.RData")
+load(file = fichier_aspe)
 
 # ajout du code EPSG aux pop
-mes_pops <- point_prelevement %>%
+aspe_pops <- point_prelevement %>%
   left_join(y = ref_type_projection,
             by = c("pop_typ_id" = "typ_id"))
 
 # homogénéisation des CRS et passage en sf
-coords <- aspe::geo_convertir_coords_df(df = mes_pops,
+coords <- aspe::geo_convertir_coords_df(df = aspe_pops,
                                         var_x = pop_coordonnees_x,
                                         var_y = pop_coordonnees_y,
                                         var_id = pop_id,
@@ -141,28 +122,87 @@ coords <- aspe::geo_convertir_coords_df(df = mes_pops,
 
 
 
-mes_pops <- mes_pops %>% 
+aspe_pops_geo <- aspe_pops %>% 
   left_join(coords) %>% 
+#  filter(Y > 47, Y < 49) %>% # qq points qui posent problème
   sf::st_as_sf(coords = c("X", "Y"),
-               crs = 4326)
-
+               crs = 4326) %>% 
 # attribution des bassins aux points pour sélectionner ceux qui sont dans les BV considérés
-mes_pops <- mes_pops %>% 
   sf::st_join(bassins) %>% 
   filter(!is.na(code_exutoire)) %>% 
-  pull(pop_id)
+  select(pop_id,
+         code_exutoire)
 
+mapview(sample_n(aspe_pops_geo, 1000))
+
+aspe_pops <- aspe_pops_geo %>%  
+  pull(pop_id)
 
 # exclusion des points qui ne sont pas dans nos bassins + nettoyage
 aspe <- mef_creer_passerelle() %>% 
-  filter(pop_id %in% mes_pops) %>% 
+  filter(pop_id %in% aspe_pops)
+
+# données environnementales au point
+aspe_env <- aspe %>% 
+  mef_ajouter_ope_desc_peche() %>% 
+  mef_ajouter_ope_env() %>% 
+  mef_ajouter_ipr() %>% 
+  mef_ajouter_ope_date() %>% 
+  select(sta_id:ope_id,
+         ope_date,
+         annee,
+         odp_longueur,
+         odp_largeur_lame_eau,
+         distance_mer:temp_janvier) %>% 
+  distinct() %>% 
+  mef_ajouter_type_protocole() %>% 
+  filter(str_detect(pro_libelle, "Pêche")) # seulement les inventaires
+
+# les valeurs nulles dans certaines variables sont en fait des NA
+# comme certaines années il y a des valeurs manquantes on agrège au point en moyennant
+aspe_env <- aspe_env %>%
+  select(pop_id,
+         odp_longueur:temp_janvier) %>%
+  pivot_longer(cols = odp_longueur:temp_janvier) %>%
+  filter(!(
+    name %in% c(
+      "odp_longueur",
+      "odp_largeur_lame_eau",
+      "surface_bv",
+      "distance_source",
+      "largeur",
+      "pente",
+      "profondeur",
+      "temp_juillet",
+      "temp_janvier"
+    ) & value == 0
+  )) %>%
+  group_by(pop_id, name) %>%
+  summarise_all(mean, na.rm = T) %>%
+  ungroup() %>%
+  pivot_wider(#id_cols = pop_id,
+    names_from = name,
+    values_from = value,
+    values_fill = NA)
+
+aspe <- aspe %>% 
   clean_aspe()
+ 
+aspe_pops_coords <- cbind(sf::st_drop_geometry(mes_pops_geo),
+                         sf::st_coordinates(mes_pops_geo)) %>%
+ rename(x_wgs84 = X,
+        y_wgs84 = Y)
 
-save(aspe, mes_pops, file = 'processed_data/aspe.RData')
+save(aspe,
+     aspe_pops,
+     aspe_pops_geo,
+     aspe_pops_coords,
+     aspe_env,
+     file = 'processed_data/aspe.RData')
 
-#-------------------------------------------------------------------
-# WAMA - NB pas de date de pêche ; codes stations sont codes sandre à "padifier"
-#-------------------------------------------------------------------
+
+# WAMA ----
+# NB pas de date de pêche ; codes stations sont codes sandre à "padifier"
 
 # base_repo <- "//dr35stoc/partages_$/dr35_projets/PROJETS/ATLAS_POISSONS/donnees_geographiques_reference"
 # base_repo <- "raw_data/donnees_geographiques_reference"
@@ -193,14 +233,16 @@ wama <- wama %>%
 save(wama, file = 'processed_data/wama.RData')
 
 
-# ---------------------------------------------------------------------
-############ empilement des fichiers + passage en sf
+# Fédés départementales ----
+fedes <- lire_fichier_fedes(chemin = "raw_data/fedes_departementales_peche.xlsx") %>% 
+  clean_fede()
+
+
+############ empilement des fichiers et sauvegarde -----
 
 gdata::keep(wama,
             sd,
-            fede56,
-            fede35,
-            fede22,
+            fedes,
             aspe,
             agence,
             bassins,
@@ -211,14 +253,11 @@ gdata::keep(wama,
 
 data <- bind_rows(wama,
                   sd,
-                  fede56,
-              #    fede35, # tout est à vérifier pour ce jeu de données
-                  fede22,
+                  fedes,
                   aspe,
                   agence)
 
 save(data,
      ref_espece,
      bassins,
-     mes_pops,
      file = "processed_data/data.RData")
