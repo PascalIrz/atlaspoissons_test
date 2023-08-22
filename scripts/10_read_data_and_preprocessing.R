@@ -108,12 +108,12 @@ fichier_aspe <- misc_nom_dernier_fichier(repertoire = "../../../../../ASPE/raw_d
 load(file = fichier_aspe)
 
 # ajout du code EPSG aux pop
-mes_pops <- point_prelevement %>%
+aspe_pops <- point_prelevement %>%
   left_join(y = ref_type_projection,
             by = c("pop_typ_id" = "typ_id"))
 
 # homogénéisation des CRS et passage en sf
-coords <- aspe::geo_convertir_coords_df(df = mes_pops,
+coords <- aspe::geo_convertir_coords_df(df = aspe_pops,
                                         var_x = pop_coordonnees_x,
                                         var_y = pop_coordonnees_y,
                                         var_id = pop_id,
@@ -122,21 +122,25 @@ coords <- aspe::geo_convertir_coords_df(df = mes_pops,
 
 
 
-mes_pops <- mes_pops %>% 
+aspe_pops_geo <- aspe_pops %>% 
   left_join(coords) %>% 
+#  filter(Y > 47, Y < 49) %>% # qq points qui posent problème
   sf::st_as_sf(coords = c("X", "Y"),
-               crs = 4326)
-
+               crs = 4326) %>% 
 # attribution des bassins aux points pour sélectionner ceux qui sont dans les BV considérés
-mes_pops <- mes_pops %>% 
   sf::st_join(bassins) %>% 
   filter(!is.na(code_exutoire)) %>% 
-  pull(pop_id)
+  select(pop_id,
+         code_exutoire)
 
+mapview(sample_n(aspe_pops_geo, 1000))
+
+aspe_pops <- aspe_pops_geo %>%  
+  pull(pop_id)
 
 # exclusion des points qui ne sont pas dans nos bassins + nettoyage
 aspe <- mef_creer_passerelle() %>% 
-  filter(pop_id %in% mes_pops)
+  filter(pop_id %in% aspe_pops)
 
 # données environnementales au point
 aspe_env <- aspe %>% 
@@ -183,8 +187,18 @@ aspe_env <- aspe_env %>%
 
 aspe <- aspe %>% 
   clean_aspe()
+ 
+aspe_pops_coords <- cbind(sf::st_drop_geometry(mes_pops_geo),
+                         sf::st_coordinates(mes_pops_geo)) %>%
+ rename(x_wgs84 = X,
+        y_wgs84 = Y)
 
-save(aspe, mes_pops, aspe_env, file = 'processed_data/aspe.RData')
+save(aspe,
+     aspe_pops,
+     aspe_pops_geo,
+     aspe_pops_coords,
+     aspe_env,
+     file = 'processed_data/aspe.RData')
 
 
 # WAMA ----
