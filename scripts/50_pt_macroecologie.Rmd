@@ -30,33 +30,31 @@ library(COGiter)
 
 
 ```{r}
-load(file = "../processed_data/data2.rda")
+#load(file = "../processed_data/data2.rda")
 load(file = '../processed_data/aspe.RData')
+load(file = "../processed_data/especes_a_supprimer.rda")
 ```
 
-# Calcul des indicateurs de diversité au point
+# Calcul des indicateurs de diversité par opération
 
 ## Sélection des données
 
 Seules les inventaires de la base Aspe sont pris en compte. On ne conserve que la dernière année de données pour chaque point.
 
 ```{r}
-pt_effectif <- aspe %>% 
-  filter(str_detect(type_peche, pattern = "partielle|ambiances|complète"),
-         effectif > 0) %>% 
-  group_by(code_station,
-           code_point,
-           localisation,
-           x_wgs84,
-           y_wgs84,
-           code_exutoire) %>% 
-  filter(date_peche == max(date_peche)) %>% 
-  group_by(across(-effectif)) %>% 
-  summarise(effectif = sum(effectif)) %>% 
+ope_effectif <- aspe_ope_captures %>%
+  filter(str_detect(pro_libelle, pattern = "partielle|ambiances|complète"),
+         effectif > 0) %>%
+  group_by(ope_id,
+           code_espece,
+           pro_libelle) %>%
+  # filter(date_peche == max(date_peche)) %>%
+  group_by(across(-effectif)) %>%
+  summarise(effectif = sum(effectif)) %>%
   ungroup()
 
-pt_effectif %>% 
-  count(type_peche)
+ope_effectif %>% 
+  count(pro_libelle)
 ```
 
 ## Calcul des indices
@@ -64,23 +62,44 @@ pt_effectif %>%
 On crée une matrice des effectifs par espèce (en colonne) pour chaque point (en ligne), puis on calcule les indices avec le package `vegan`.
 
 ```{r}
-pt_effectif_matrice <- pt_effectif %>% 
-  pivot_wider(id_cols = code_point,
+# ope_captures <- aspe_passerelle %>% 
+#   select(pop_id,
+#          ope_id) %>% 
+#   distinct() %>% 
+#   left_join(y = aspe_ope_captures)
+
+ope_effectif_matrice <- ope_effectif %>% 
+  pivot_wider(id_cols = ope_id,
               names_from = code_espece,
               values_from = effectif,
               values_fill = 0) %>% 
-  column_to_rownames(var = "code_point")
+  column_to_rownames(var = "ope_id")
 
 
-# Calcul des indices
-pt_indices <- pt_effectif_matrice %>%
+# Calcul des indices par opération
+ope_indices <- ope_effectif_matrice %>%
   transmute(
     richesse = specnumber(.),
     shannon = diversity(.),
     simpson = diversity(., index = "simpson"),
     pielou = shannon / log(richesse)
   ) %>%
-  rownames_to_column(var = "code_point")
+  rownames_to_column(var = "ope_id") %>% 
+  mutate(ope_id = as.integer(ope_id))
+
+# Indices au point pour la dernière opération
+pt_indices <- ope_indices %>% 
+  left_join(y = aspe_passerelle %>% 
+              select(pop_id,
+                     ope_id) %>% 
+              distinct()) %>% 
+  mef_ajouter_ope_date()
+
+pt_indices <- pt_indices %>% 
+  group_by(pop_id) %>% 
+    filter(ope_date == max(ope_date)) %>% 
+  ungroup() %>% 
+  left_join(pt_indices)
 ```
 
 ## Distribution des indices
@@ -102,9 +121,9 @@ pt_indices_long %>%
 
 ```{r, fig.width = 5, fig.height = 12}
 test <- aspe_pops_geo %>%
-  rename(code_point = pop_id) %>% 
-  right_join(pt_indices_long %>% 
-               mutate(code_point = as.integer(code_point)))
+ # rename(code_point = pop_id) %>% 
+  right_join(pt_indices_long) #%>% 
+            #   mutate(code_point = as.integer(code_point)))
 
 pal <- wesanderson::wes_palette("Zissou1", 100, type = "continuous")
 
