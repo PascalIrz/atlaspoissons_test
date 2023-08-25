@@ -87,7 +87,7 @@ g2 <- cowplot::plot_grid(plotlist = g,
 g2
 ```
 
-# Modélisation
+# Variables environnementales
 
 ## Examen des variables explicatives
 

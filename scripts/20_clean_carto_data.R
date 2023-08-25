@@ -267,9 +267,6 @@ bv_faune <- pt_carto_data %>%
   ungroup() %>% 
   mutate(layerId = code_exutoire)
 
-
-
-
 save(pt_carto_data,
      pt_carto_geo,
      bv_faune,
