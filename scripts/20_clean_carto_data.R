@@ -267,9 +267,24 @@ bv_faune <- pt_carto_data %>%
   ungroup() %>% 
   mutate(layerId = code_exutoire)
 
+bv_effort_prospection <- pt_carto_data %>% 
+  mutate(inventaire = ifelse(
+    str_detect(type_peche, "WAMA|Suivi|Stratifiée|partielle|ambiances|complète|Inventaire|Complète|Atlas"),
+    yes = TRUE,
+    no = FALSE
+  )) %>% 
+  group_by(code_exutoire) %>% 
+  summarise(n_annees = n_distinct(annee),
+            n_pops = n_distinct(code_coords),
+            n_inventaires = n_distinct(code_coords[inventaire]))
+  
+
+
+
 save(pt_carto_data,
      pt_carto_geo,
      bv_faune,
+     bv_effort_prospection,
      bv_env,
      bv_simp_geo,
      passerelle_taxo,

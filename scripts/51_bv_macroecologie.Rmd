@@ -153,6 +153,8 @@ corrplot(matrice_cor)
 ```{r}
 model_data <- bv_data %>% 
             filter(!str_detect(toponyme, "Vilaine"), # Vilaine
+                   !str_detect(toponyme, "l'Aulne"), # Aulne
+                   !str_detect(toponyme, "Blavet"), # Le blavet
                    code_exutoire != "exut_643") # Rance
 
 mod <- lm(rsr ~ alt_moy +
@@ -162,8 +164,9 @@ mod <- lm(rsr ~ alt_moy +
             prct_rpg +
             surf_km2 +
             X_centroid +
-            n_inventaires +
-            canal_conn,
+            n_inventaires #+
+           # canal_conn
+          ,
           data = model_data)
 
 summary(mod)
@@ -172,4 +175,7 @@ summary(mod)
 plot(mod)
 ```
 
+```{r}
+summary(stepAIC(mod))
+```
 
