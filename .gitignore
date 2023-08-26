@@ -1,7 +1,7 @@
 .Rproj.user
 .Rhistory
 .Ruserdata
-*.html
+/scripts/*.html
 /raw_data/
 /processed_data/
 /scripts/rsconnect
