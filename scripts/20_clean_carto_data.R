@@ -9,17 +9,11 @@ library(readODS)
 
 rm(list = ls())
 
-load(file = "processed_data/data.RData")
-
+load(file = "processed_data/carto_data.rda")
+load(file = "processed_data/especes_a_supprimer.rda")
 
 # Délimitation de la période temporelle ----
 premiere_annee <- 2014
-
-# Liste des espèces à supprimer ----
-especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
-                         "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC",
-                         "GRV", "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX",
-                         "CYP", "GAX", "HBG", "HYC", "LPX", "PFL")
 
 # renommage du référentiel taxo + corrections sur les noms communs ----
 ref_espece <- ref_espece %>% 
@@ -98,7 +92,7 @@ bv_simp_geo <- bv_simp_geo %>%
 
 # mise en forme du jeu de données au point ----
 # _____________________________________
-data <- data %>%
+carto_data <- carto_data %>%
   atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
   mutate(code_coords = paste(round(x_wgs84, 6),
                              round(y_wgs84, 6),
@@ -121,21 +115,21 @@ data <- data %>%
 # présences au point ---------
 # _________________________________
 # pour les présences on ne conserve l'ensemble des protocoles
-pt_presence <- data %>% 
+pt_carto_presence <- carto_data %>% 
   select(-code_exutoire) %>% 
   distinct() %>% 
   mutate(code_espece = as.factor(code_espece)) %>% 
   droplevels()
 
 # suppression des espèces jamais présentes
-especes_a_garder <- pt_presence %>%
+especes_a_garder <- pt_carto_presence %>%
   group_by(code_espece) %>% 
     summarise(effectif = sum(effectif)) %>% 
   filter(effectif > 0) %>% 
   pull(code_espece) %>% 
   droplevels()
 
-pt_presence <- pt_presence %>% 
+pt_carto_presence <- pt_carto_presence %>% 
   filter(code_espece %in% especes_a_garder,
          effectif > 0) %>% 
   mutate(statut = "Présent")
@@ -144,7 +138,7 @@ pt_presence <- pt_presence %>%
 # absences au point --------------
 # ____________________________
 # caractérisation des pêches selon le protocole en inventaire ou non
-peches_inventaires <- data %>% 
+peches_inventaires <- carto_data %>% 
   group_by(type_peche) %>% 
   tally() %>% 
   ungroup() %>% 
@@ -154,7 +148,7 @@ peches_inventaires <- data %>%
     no = FALSE
   ))
 
-pt_absence <- data %>% 
+pt_carto_absence <- carto_data %>% 
   filter(code_espece %in% especes_a_garder) %>% 
   atlaspoissons::ajouter_absence() %>% 
   filter(effectif == 0) %>% 
@@ -163,12 +157,12 @@ pt_absence <- data %>%
     inventaire ~ "Absent",
     TRUE ~ "Non détecté"
   )) %>%
-  select(names(pt_presence))
+  select(names(pt_carto_presence))
 
 
 # assemblage des données au point ----
 # __________________________________
-pt_data <- rbind(pt_presence, pt_absence) %>% 
+pt_carto_data <- rbind(pt_carto_presence, pt_carto_absence) %>% 
   mutate(
     statut = as.factor(statut),
     statut = fct_relevel(statut, c("Non détecté", "Absent", "Présent")),
@@ -176,7 +170,7 @@ pt_data <- rbind(pt_presence, pt_absence) %>%
   droplevels() %>% 
   select(-ope_id)
 
-pt_data <- pt_data %>% 
+pt_carto_data <- pt_carto_data %>% 
   left_join(y = ref_espece %>% 
               select(code_espece,
                      esp_nom_commun)) %>% 
@@ -214,7 +208,7 @@ passerelle_taxo <- data_passerelle_taxo %>%
               select(code_espece,
                      esp_nom_commun)) %>% 
   filter(!is.na(esp_nom_commun),
-         code_espece %in% unique(pt_data$code_espece)) %>% 
+         code_espece %in% unique(pt_carto_data$code_espece)) %>% 
   mutate(fiche_inpn1 = paste0("<a href='https://inpn.mnhn.fr/espece/cd_nom/",
                              esp_code_taxref,
                              "' target='_blank'>",
@@ -232,19 +226,19 @@ passerelle_taxo <- passerelle_taxo %>%
   expliciter_statut_lr(var = lr_nationale) %>%  
   expliciter_statut_lr(var = lr_regionale)
   
-rm(pt_presence, pt_absence)
+rm(pt_carto_presence, pt_carto_absence)
 
 
 # spatialisation des points et attribution d'un code_exutoire ----
 # _______________________________________________________________
-coords <- pt_data %>% 
+coords <- pt_carto_data %>% 
   select(code_coords,
          localisation,
          x_wgs84,
          y_wgs84) %>% 
   distinct()
 
-pt_data <- pt_data %>%
+pt_carto_data <- pt_carto_data %>%
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326,
            remove = FALSE) %>% 
@@ -256,7 +250,7 @@ pt_data <- pt_data %>%
 
 # création de l'objet sf des points ----
 # _________________________________________
-pt_geo <- coords %>% 
+pt_carto_geo <- coords %>% 
   st_as_sf(coords = c("x_wgs84", "y_wgs84"),
            crs = 4326) %>% 
   select(code_coords,
@@ -267,20 +261,33 @@ pt_geo <- coords %>%
 # Donnée au bassin ----
 # détermination du statut par bassin x espèce chaque année + ajout effectif
 # _______________________________________________________________________
-bv_faune <- pt_data %>% 
+bv_faune <- pt_carto_data %>% 
   group_by(code_exutoire, code_espece, annee) %>% 
     summarise(statut = max(statut)) %>% 
   ungroup() %>% 
   mutate(layerId = code_exutoire)
 
+bv_effort_prospection <- pt_carto_data %>% 
+  mutate(inventaire = ifelse(
+    str_detect(type_peche, "WAMA|Suivi|Stratifiée|partielle|ambiances|complète|Inventaire|Complète|Atlas"),
+    yes = TRUE,
+    no = FALSE
+  )) %>% 
+  group_by(code_exutoire) %>% 
+  summarise(n_annees = n_distinct(annee),
+            n_pops = n_distinct(code_coords),
+            n_inventaires = n_distinct(code_coords[inventaire]))
+  
 
 
 
-save(pt_data,
-     pt_geo,
+save(pt_carto_data,
+     pt_carto_geo,
      bv_faune,
+     bv_effort_prospection,
      bv_env,
      bv_simp_geo,
      passerelle_taxo,
      #file = "../../atlas_poissons_app/atlas/donnees_appli.RData"
-     file = "processed_data/data2.rda")
+     file = "processed_data/carto_data2.rda")
+

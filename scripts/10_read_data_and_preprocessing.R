@@ -65,6 +65,14 @@ bassins <- bassins %>%
 # save(bassins, file = "processed_data/bassins.RData")
 # load("processed_data/bassins.RData")
 
+# Liste des espèces à supprimer ----
+especes_a_supprimer <- c("PCC", "ASL", "OCI", "ECR", "MAH", "PCF", "OCV", "ASA",
+                         "APP", "APT", "OCL", "GOX", "VAL", "POB", "CRE", "CRC",
+                         "GRV", "GRT", "GRI", "LOU", "MUP", "PLI", "ALF", "BRX",
+                         "CYP", "GAX", "HBG", "HYC", "LPX", "PFL")
+
+
+
 # _________________
 # SD ----
 # _________________
@@ -79,13 +87,13 @@ sd_base@data <-  sd_base@data %>%
 sd_base <- sd_base %>% 
   sf::st_as_sf() 
 
-sd <- sd_base %>%
+sd_carto_data <- sd_base %>%
   atlaspoissons::clean_sd() %>% 
   mutate(effectif = as.numeric(effectif))
 
-save(sd, file = 'processed_data/sd.RData')
+# save(sd_carto_data, file = 'processed_data/sd.RData')
 
-rm(sd_base, wama_base)
+# rm(sd_base, wama_base)
 
 # _________________
 # agence eau Loire Bretagne ----
@@ -95,7 +103,7 @@ base_repo <- "raw_data"
 file <- "Export_wama_env_poiss_AELB_BZH_2016_2018.xls"
 path <- paste(base_repo, file, sep = "/")
 
-agence <- readxl::read_xls(path,
+agence_carto_data <- readxl::read_xls(path,
                            sheet = "TempTable") %>% 
   atlaspoissons::clean_agence()
 
@@ -138,16 +146,23 @@ mapview(sample_n(aspe_pops_geo, 1000))
 aspe_pops <- aspe_pops_geo %>%  
   pull(pop_id)
 
+
+aspe_pops_coords <- cbind(sf::st_drop_geometry(aspe_pops_geo),
+                          sf::st_coordinates(aspe_pops_geo)) %>%
+  rename(x_wgs84 = X,
+         y_wgs84 = Y)
+
 # exclusion des points qui ne sont pas dans nos bassins + nettoyage
-aspe <- mef_creer_passerelle() %>% 
-  filter(pop_id %in% aspe_pops)
+aspe_passerelle <- mef_creer_passerelle() %>% 
+  filter(pop_id %in% aspe_pops) %>% 
+  mef_ajouter_ope_date()
 
 # données environnementales au point
-aspe_env <- aspe %>% 
+aspe_env <- aspe_passerelle %>% 
   mef_ajouter_ope_desc_peche() %>% 
   mef_ajouter_ope_env() %>% 
   mef_ajouter_ipr() %>% 
-  mef_ajouter_ope_date() %>% 
+ # mef_ajouter_ope_date() %>% 
   select(sta_id:ope_id,
          ope_date,
          annee,
@@ -185,19 +200,35 @@ aspe_env <- aspe_env %>%
     values_from = value,
     values_fill = NA)
 
-aspe <- aspe %>% 
-  clean_aspe()
- 
-aspe_pops_coords <- cbind(sf::st_drop_geometry(mes_pops_geo),
-                         sf::st_coordinates(mes_pops_geo)) %>%
- rename(x_wgs84 = X,
-        y_wgs84 = Y)
+aspe_ope_captures <- aspe_passerelle %>% 
+  mef_ajouter_lots() %>% 
+  mef_ajouter_esp() %>% 
+  mef_ajouter_type_protocole() %>% 
+  rename(code_espece = esp_code_alternatif) %>% 
+  select(-starts_with("esp")) %>% 
+  left_join(aspe_pops_coords) %>% 
+  atlaspoissons::recode_and_filter_species(sp_to_remove = especes_a_supprimer) %>% 
+  group_by(ope_id, code_espece, pro_libelle) %>% 
+    summarise(effectif = sum(lop_effectif, na.rm = TRUE)) %>% 
+  ungroup()
 
-save(aspe,
+aspe_carto_data <- aspe_passerelle %>% 
+  select(-ope_date#,
+         #-lop_id, -pre_id
+         ) %>%
+  distinct() %>% 
+  clean_aspe()
+
+
+save(aspe_carto_data,
      aspe_pops,
      aspe_pops_geo,
      aspe_pops_coords,
      aspe_env,
+     aspe_passerelle,
+     aspe_ope_captures,
+     ref_protocole,
+     fichier_aspe,
      file = 'processed_data/aspe.RData')
 
 
@@ -213,12 +244,12 @@ save(aspe,
 
 load(file = "raw_data/wama.RData")
 
-wama <- wama_base %>% 
+wama_carto_data <- wama_base %>% 
   atlaspoissons::clean_wama()
 
 # on complète les codes sandre station qui ont perdu leurs zéros de tête
 # et récupère les libellés des stations depuis la table "station" de aspe
-wama <- wama %>% 
+wama_carto_data <- wama_carto_data %>% 
   mutate(code_station = str_pad(code_station,
                                 width = 8,
                                 pad = "0",
@@ -230,34 +261,39 @@ wama <- wama %>%
 
 
 
-save(wama, file = 'processed_data/wama.RData')
+# save(wama_carto_data, file = 'processed_data/wama.RData')
 
 
 # Fédés départementales ----
-fedes <- lire_fichier_fedes(chemin = "raw_data/fedes_departementales_peche.xlsx") %>% 
+fedes_carto_data <- lire_fichier_fedes(chemin = "raw_data/fedes_departementales_peche.xlsx") %>% 
   clean_fede()
 
 
 ############ empilement des fichiers et sauvegarde -----
 
-gdata::keep(wama,
-            sd,
-            fedes,
-            aspe,
-            agence,
+gdata::keep(wama_carto_data,
+            sd_carto_data,
+            fedes_carto_data,
+            aspe_carto_data,
+            agence_carto_data,
             bassins,
             ref_espece,
+            especes_a_supprimer,
             sure = T)
 
 
 
-data <- bind_rows(wama,
-                  sd,
-                  fedes,
-                  aspe,
-                  agence)
+carto_data <- bind_rows(wama_carto_data,
+                  sd_carto_data,
+                  fedes_carto_data,
+                  aspe_carto_data,
+                  agence_carto_data)
 
-save(data,
+save(carto_data,
      ref_espece,
+     especes_a_supprimer,
      bassins,
-     file = "processed_data/data.RData")
+     file = "processed_data/carto_data.rda")
+
+save(especes_a_supprimer,
+     file = "processed_data/especes_a_supprimer.rda")

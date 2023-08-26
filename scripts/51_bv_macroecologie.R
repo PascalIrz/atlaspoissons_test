@@ -8,7 +8,8 @@ library(mapview)
 rm(list = ls())
 
 #load(file = "processed_data/data.RData")
-load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
+# load(file = "../../atlas_poissons_app/atlas/donnees_appli.RData")
+load(file = "../processed_data/carto_data.rda")
 
 # presence ----
 presence <- bv_faune %>% 
