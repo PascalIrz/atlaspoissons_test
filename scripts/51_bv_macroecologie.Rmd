@@ -17,15 +17,16 @@ knitr::opts_chunk$set(echo = TRUE, message=F, warning = F)
 # Chargement des packages et des données
 
 ```{r}
+library(MASS) # keep MASS firts yo avoid function conflict with dplyr
 library(tidyverse)
-library(sf)
-library(vegan)
+#library(sf)
+#library(vegan)
 library(corrplot)
 library(factoextra)
 library(FactoMineR)
 library(mapview)
-library(aspe)
-#library(COGiter)
+#library(aspe)
+
 
 #source(file = "../R/lm_indices_env.R")
 ```
