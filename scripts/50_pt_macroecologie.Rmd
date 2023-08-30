@@ -28,6 +28,8 @@ library(aspe)
 library(COGiter)
 
 source(file = "../R/lm_indices_env.R")
+source(file = "../R/mon_accum.R")
+
 ```
 
 
@@ -41,7 +43,7 @@ load(file = "../processed_data/aspe_macroecologie_data.rda")
 
 # Indices de biodiversité
 
-Dans cette partie, pour éviter que certains points, échantillonnés à de multiples reprises, ne prennent une importance exagérée, on ne conserve que la dernière année de données pour chacun des points.
+Dans cette partie, seules les données d'inventaires de la base Aspe sont conservées. Pour les points prospectés plusieurs fois, on ne conserve que la dernière pêche en date pour éviter un biais d'effort de prospection.
 
 ## Distribution des indices
 
@@ -49,11 +51,17 @@ NB Pielou n'est pas calculé sur les points monospécifiques car il a au dénomi
 
 ```{r}
 pt_indices_long %>% 
+  mutate(name = fct_relevel(name, "richesse", "shannon", "simpson")) %>% 
   ggplot(aes(x = value)) + 
-  geom_density(fill = "darkgreen",
-               alpha = 0.2) +
+  geom_histogram(fill = "darkgreen",
+                 col = "black",
+                 alpha = 0.2,
+                 bins = 20) +
   scale_x_continuous(limits = c(0, NA)) +
-  facet_wrap(~name, scales = "free")
+  facet_wrap(~name, scales = "free_x") +
+  theme_classic() +
+  labs(x = "Valeur de l'indice",
+       y = "Nombre de sites")
 ```
 
 
@@ -184,13 +192,104 @@ plot(mod2)
 Sans aller autant dans le détail que pour la richesse spécifique on peut reproduire la démarche pour les autres indices (sans appliquer ici la `stepAIC`; on conserve toutes les variables explicatives).
 
 ```{r}
-lm_indices_env(df = pt_indices,
-               variables_dependantes = c("richesse", "shannon", "simpson", "pielou")) %>% 
-  rownames_to_column("Variable explicative") %>% 
-  flextable::flextable() %>% 
-  flextable::set_table_properties(layout = "autofit", width = .9) %>% 
+lm_indices_env(
+  df = pt_indices,
+  variables_dependantes = c("richesse",
+                            "shannon",
+                            "simpson",
+                            "pielou"),
+  variables_explicatives = c("taille",
+                             "pente",
+                             "temp_01",
+                             "temp_07",
+                             "x_wgs84",
+                             "y_wgs84"),
+  step = FALSE # ne peut être TRUR que si tous les modèles simplifiés par stepAIC retiennent les mêmes variables
+) %>%
+  rownames_to_column("Variable explicative") %>%
+  flextable::flextable() %>%
+  flextable::set_table_properties(layout = "autofit", width = .9) %>%
   flextable::theme_zebra()
 ```
+
+# Problématique de l'échantillonnage
+
+## Estimation de la richesse absolue par point
+
+On utilise l'exemple fourni sur 
+https://search.r-project.org/CRAN/refmans/vegan/html/specpool.html
+
+Construction, d'une part, du tableau faunistique et, d'autre part, du vecteur indiquant à quel bassin appartient chaque point.
+
+```{r}
+ope_abondance_large <- ope_effectif %>% 
+  pivot_wider(names_from = "code_espece",
+              values_from = "effectif",
+              values_fill = 0) %>% 
+  left_join(aspe_passerelle %>% 
+              select(ope_id,
+                     pop_id) %>% 
+              unique())
+
+pops <- ope_abondance_large %>% 
+  select(pop_id)
+
+ope_abondance_large <- ope_abondance_large %>% 
+    select(-ope_id, -pro_libelle)
+
+pop_richesse_absolue <- with(pops, specpool(ope_abondance_large, pop_id))
+
+
+
+
+
+pop_richesse_absolue <- pop_richesse_absolue %>% 
+  rownames_to_column("pop_id") %>% 
+  mutate(pop_id = as.integer(pop_id)) %>% 
+    select(-ends_with(".se")) %>% 
+  rename(richesse_observee = Species,
+         n_ope = n) %>% 
+ #   rownames_to_column(var = "site") %>% 
+    mutate(richesse_absolue_moy_estimateurs = (chao + jack1 + jack2 + boot) / 4) %>% 
+    mutate_all(round, 2) %>% 
+    left_join(y = aspe_carto_data %>% 
+                  select(pop_id = code_point,
+                         localisation) %>%
+                  distinct()) %>% 
+  select(pop_id,
+         localisation,
+         n_ope,
+         richesse_observee,
+         richesse_absolue_moy_estimateurs,
+         everything())
+
+DT::datatable(pop_richesse_absolue)
+```
+
+## Courbes d'accumulation / appauvrissement
+
+```{r}
+accum <- mon_accum (df = ope_abondance_large,
+                    var_site_id = pop_id)
+
+points_assez_de_peches <- ope_abondance_large %>% 
+  count(pop_id) %>% 
+  filter(n > 10) %>% 
+  pull(pop_id)
+
+
+ggplot(data = accum %>% filter(pop_id %in% points_assez_de_peches),
+       aes(x = n_opes,
+           y = pt_richesse)) +
+  geom_line() +
+  facet_wrap(~pop_id)
+  
+
+ope_abondance_large %>% 
+  filter(pop_id == 31518) %>% 
+  select_if(colSums(.) != 0) %>% View
+```
+
 
 
 
