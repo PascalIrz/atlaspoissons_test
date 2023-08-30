@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, message=F, warning = F)
 # Chargement des packages et des données
 
 ```{r}
-library(MASS) # keep MASS firts yo avoid function conflict with dplyr
+library(MASS) # keep MASS first yo avoid synonymous function conflict with dplyr
 library(tidyverse)
 #library(sf)
 #library(vegan)
@@ -28,7 +28,7 @@ library(mapview)
 #library(aspe)
 
 
-#source(file = "../R/lm_indices_env.R")
+source(file = "../R/lm_indices_env.R")
 ```
 
 
@@ -71,23 +71,48 @@ bv_data <- bv_env %>%
          -long_tp_m) %>% 
   left_join(bv_effort_prospection) %>% 
   left_join(bv_richesse) %>% 
-  filter(rsr > 0)
+  filter(rsr > 0,
+         n_inventaires > 0)
 ```
 
 ## Distribution des variables explicatives
 
-Les variables quantitatives
+Distribution des variables quantitatives. Les abscisses sont en échelle log.
 
-```{r}
-bv_data %>% 
+```{r, fig.width = 8, fig.height = 8}
+plot_data <- bv_data %>% 
   select(code_exutoire,
-         alt_moy:surf_km2) %>% 
+         alt_moy:surf_km2,
+         n_inventaires,
+         n_pops) %>% 
   pivot_longer(cols = -code_exutoire) %>% 
-  ggplot(aes(x = value)) +
-    geom_density() +
+  mutate(name = as.factor(name),
+         name = fct_relevel(name, "n_inventaires","n_pops"))
+
+
+ggplot(data = plot_data %>% filter(!name %in% c("n_inventaires","n_pops")),
+         aes(x = value#,
+             #col = name %in% c("n_inventaires","n_pops")
+             )) +
+    geom_histogram(fill = "darkgreen") +
     facet_wrap(~name, scales = "free") +
-    scale_x_log10(labels = scales::label_comma())
+    scale_x_log10(labels = scales::label_comma()) +
+    theme(legend.position="none")
 ```
+
+Pour ce qui est de l'effort de prospection, la Vilaine est très loin des autres bassins, ca qui "tasse" les distributions des petites valeurs. 
+
+```{r, fig.height = 3, fig.width = 4}
+ggplot(data = plot_data %>% filter(name %in% c("n_inventaires","n_pops")),
+         aes(x = value#,
+             #col = name %in% c("n_inventaires","n_pops")
+             )) +
+    geom_histogram(fill = "darkred") +
+    facet_wrap(~name, scales = "free") +
+    theme(legend.position="none")
+```
+
+
 Variables qualitatives
 
 ```{r}
@@ -97,17 +122,17 @@ bv_data %>%
          strahler_m) %>% 
   pivot_longer(cols = -code_exutoire) %>% 
   ggplot(aes(x = value)) +
-    geom_bar() +
+    geom_bar(fill = "darkgreen") +
     facet_wrap(~name, scales = "free")
 ```
 
 ## Relations entre variables explicatives
 
-On se limite aux variables quantitatives car d'une part la connexion à un canal est très rare et d'autre part le rang de strahler ne sera pas conservé car son information serait redondante avec celle des variabkes quantitatives.
+On se limite aux variables quantitatives car d'une part la connexion à un canal est très rare et d'autre part le rang de strahler ne sera pas conservé car son information serait redondante avec celle des variables quantitatives.
 
 ```{r}
 library("PerformanceAnalytics")
-chart.Correlation(bv_data %>% select(alt_moy:surf_km2),
+chart.Correlation(bv_data %>% select(alt_moy:surf_km2, n_inventaires, n_pops),
                   histogram = TRUE,
                   pch = 19)
 ```
@@ -115,7 +140,9 @@ chart.Correlation(bv_data %>% select(alt_moy:surf_km2),
 Test en log-transformant.
 
 ```{r}
-chart.Correlation(bv_data %>% select(alt_moy:surf_km2) %>% mutate_all(log10),
+chart.Correlation(bv_data %>%
+                    select(alt_moy:surf_km2, n_inventaires, n_pops) %>%
+                    mutate_at(vars(alt_moy:surf_km2, n_inventaires, n_pops), log10),
                   histogram = TRUE,
                   pch = 19)
 ```
@@ -126,7 +153,7 @@ Les distributons sont plus proches de la normale quand les variables "surf_km2",
 bv_data <- bv_data %>% 
   mutate(prct_PE_CE = ifelse(is.na(prct_PE_CE), 0, prct_PE_CE),
          prct_PE_CE = log(1 + prct_PE_CE)) %>% 
-  mutate_at(vars(surf_km2, pte_tp_moy), log)
+  mutate_at(vars(surf_km2, pte_tp_moy, n_inventaires, n_pops), log)
 ```
 
 ```{r}
@@ -139,44 +166,181 @@ acp <- bv_data %>%
 factoextra::fviz_pca_var(acp, col.var = "contrib", gradient.col = c("pink", "purple", "blue"), repel = TRUE)
 ```
 
-```{r}
+```{r, fig.width = 8, fig.height = 8}
 matrice_cor <- cor(bv_data %>% 
-  select(alt_moy:surf_km2) %>% 
+  select(alt_moy:surf_km2, n_pops, n_inventaires) %>% 
     na.omit())
 
-corrplot(matrice_cor)
+corrplot(matrice_cor,
+         addCoef.col = 1,
+         number.cex = 0.6)
 ```
 
-*A affiner* : on retient les moyennes pour l'altitude, la pente et parc + les 2 variables pêu corrélées aux autres.
+*A affiner* : on retient pour :
+
+- l'altitude : la médiane, très corrélée à la moyenne mais moins corrélée à surf_km2
+- la pente : la médiane, la moins corrélée à alt_max
+- parc : la moyenne, très corrélée à la médiane et à l'écart-type donc qui synthétise cet aspect
+- les variables prct_PE_CE, prct_rpg et surf_km2 qui sont peu corrélées aux autres
+- on écarte la variable de connectivité avec des canaux, qui concerne trop peu de bassins (4) 
+
+Ces variables environnementales sont complétées par la longitude et le nombre de points d'échantillonnage dans le bassin.
 
 ## Modélisation
 
+Une série de tests préalables a conduit à écarter certains bassins - les plus grands - qui n'entrent pas dans le schéma général.
+
 ```{r}
 model_data <- bv_data %>% 
-            filter(!str_detect(toponyme, "Vilaine"), # Vilaine
-                   !str_detect(toponyme, "l'Aulne"), # Aulne
-                   !str_detect(toponyme, "Blavet"), # Le blavet
-                   code_exutoire != "exut_643") # Rance
+  filter(n_inventaires > 0)
 
-mod <- lm(rsr ~ alt_moy +
-            pente_moy +
-            parc_moy +
-            prct_PE_CE +
-            prct_rpg +
-            surf_km2 +
-            X_centroid +
-            n_inventaires #+
-           # canal_conn
-          ,
-          data = model_data)
+rownames(model_data) <- paste(model_data$toponyme, model_data$code_exutoire, sep = " -")
+```
 
-summary(mod)
-```
-```{r}
-plot(mod)
-```
+### Modèle sur tous les bassins
 
 ```{r}
-summary(stepAIC(mod))
+les_variables_explicatives = c(
+  "alt_median",
+  "pente_medi",
+  "parc_moy",
+  "prct_PE_CE",
+  "prct_rpg",
+  "surf_km2",
+  "X_centroid",
+  "log(n_inventaires)",
+  "canal_conn"
+)
+# 
+mod0 <- lm(data = model_data,
+           formula = paste("rsr ~ ",
+                           paste(les_variables_explicatives, collapse = " + ")))
+
+summary(mod0)
 ```
+
+Simplification
+
+```{r, results='hide'}
+mod0step <- MASS::stepAIC(mod0)
+```
+
+
+```{r}
+summary(mod0step)
+```
+
+```{r}
+plot(mod0step)
+```
+
+### Sans la Vilaine
+
+On voit que la Vilaine est un outlier qui influence très fortement le modèle (fort bras de levier `leverage`). Elle n'entre donc pas vraiment dans le schéma général.
+
+Observons ce qui se passe si l'on supprime la Vilaine.
+
+```{r, results='hide'}
+mod1 <- lm(data = model_data %>% 
+             filter(!str_detect(toponyme, "Vilaine")) ,
+           formula = paste("rsr ~ ",
+                           paste(les_variables_explicatives, collapse = " + ")))
+mod1step <- MASS::stepAIC(mod1)
+```
+
+
+```{r}
+summary(mod1step)
+
+plot(mod1step)
+```
+
+### En supprimant Le Cousenon, la Sélune et la rivière du Bono
+
+```{r, results='hide'}
+mod2 <- lm(data = model_data %>% 
+             filter(!str_detect(toponyme, "Vilaine|du Bono|Couesnon|La Sã©Lune")) ,
+           formula = paste("rsr ~ ",
+                           paste(les_variables_explicatives, collapse = " + ")))
+mod2step <- MASS::stepAIC(mod2)
+```
+
+
+```{r}
+summary(mod2step)
+
+plot(mod2step)
+```
+
+### En supprimant la Blavet et l'Aulne
+
+```{r, results='hide'}
+mod3 <- lm(data = model_data %>% 
+             filter(!str_detect(toponyme, "Vilaine|du Bono|Couesnon|La Sã©Lune|Blavet|Aulne")) ,
+           formula = paste("rsr ~ ",
+                           paste(les_variables_explicatives, collapse = " + ")))
+mod3step <- MASS::stepAIC(mod3)
+```
+
+
+```{r}
+summary(mod3step)
+
+plot(mod3step)
+```
+
+### Comparaison des modèles
+
+Qu'on considère le modèle construit sur l'ensemble du jeu de données ou bien ceux omettant les bassins les plus influents, les variables retenues sont toujours les mêmes, ce qui est rassurant. On va comparer ces modèles pour voir dans quelle mesure l'omission de certains bassins influe sur les modèles. On ne conserve que les 4 variables qui sont sysnématiquement retenues par la procédure de sélection `stepAIC`.
+
+```{r}
+les_variables_explicatives = c(
+  "alt_median",
+ # "pente_medi",
+ # "parc_moy",
+#  "prct_PE_CE",
+  #"prct_rpg",
+  "surf_km2",
+  "X_centroid",
+  "log(n_inventaires)"#,
+  #"canal_conn"
+)
+test <- map(.x = list(model_data,
+                      model_data %>% filter(!str_detect(toponyme, "Vilaine")),
+                      model_data %>% filter(!str_detect(toponyme, "Vilaine|du Bono|Couesnon|La Sã©Lune")),
+                      model_data %>% filter(!str_detect(toponyme, "Vilaine|du Bono|Couesnon|La Sã©Lune|Blavet|Aulne"))
+                    ),
+            .f = lm_indices_env,
+            variables_dependantes = "rsr",
+            variables_explicatives = les_variables_explicatives,
+            step = FALSE) %>% 
+  reduce(cbind) %>% 
+  as.data.frame() %>% 
+  set_names(c("Modèle complet", "Sans Vilaine", "Exclusion 4 BV", "Exclusion 6 BV")) %>% 
+  rownames_to_column(var = "Variable explicative")
+
+flextable::flextable(test) %>% 
+  flextable::set_table_properties(layout = "autofit", width = .9) %>% 
+  flextable::bg(i = 6, bg = "#EFEFEF", part = "body")
+```
+
+Il apparaît donc que, bien que certains grands bassins contribuent fortement à construire les modèles, leur inclusion ou exclusion du jeu de données ne change que très peu la valeur des coefficients. Aucun de change de signe. Il n'est donc pas choquant de conserver le modèle avec tous les bassins même la Vilaine.
+
+### Interprétation
+
+Le coefficient de détermination ajusté du modèle est de `r test[2, 6]`. La richesse d'un bassin est d'autant plus élevé qu'il est :
+
+- grand
+- bien prospecté
+- localisé à l'Est de la zone d'étude
+- à faible attitude
+
+# Problématique de l'échantillonnage
+
+```{r}
+
+```
+
+
+
 
