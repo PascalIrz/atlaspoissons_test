@@ -50,25 +50,28 @@ ope_indices <- ope_effectif_matrice %>%
   mutate(ope_id = as.integer(ope_id))
 
 # Indices au point pour la dernière opération
-pt_indices <- ope_indices %>% 
+pop_indices <- ope_indices %>% 
   left_join(y = aspe_passerelle %>% 
               select(pop_id,
                      ope_id) %>% 
               distinct()) %>% 
   mef_ajouter_ope_date()
 
-pt_indices <- pt_indices %>% 
+pop_indices <- pop_indices %>% 
   group_by(pop_id) %>% 
   filter(ope_date == max(ope_date)) %>% 
-  ungroup() #%>% 
- # left_join(pt_indices)
+  ungroup()
+
+# en vue du filtrage des opérations par point
+ope_id_der_peche_par_pop_id <- pop_indices %>% 
+  pull(ope_id)
 
 # passage du tableau en format long pour les graphiques
-pt_indices_long <- pt_indices %>% 
+pop_indices_long <- pop_indices %>% 
   pivot_longer(richesse:pielou)
 
 # assemblage du tableau pour la modélisation
-pt_indices <- pt_indices %>% 
+pop_indices <- pop_indices %>% 
   mutate(code_point = as.integer(pop_id)) %>% 
   left_join(y = aspe_env,
             by = c("code_point" = "pop_id")) %>% 
@@ -91,19 +94,20 @@ pt_indices <- pt_indices %>%
          richesse:pielou)
 
 # recherche de variables avec trop de valeurs manquantes
-colSums(is.na(pt_indices))
+colSums(is.na(pop_indices))
 
 # suppression des stations avec des données incomplètes
-pt_indices <- pt_indices %>%  
+pop_indices <- pop_indices %>%  
   drop_na(altitude:temp_07)
 
 # vérification absence de valeurs manquantes
-colSums(is.na(pt_indices))
+colSums(is.na(pop_indices))
 
 # sauvegarde
-save(pt_indices_long,
-     pt_indices,
+save(pop_indices_long,
+     pop_indices,
      ope_indices,
      ope_effectif,
+     ope_id_der_peche_par_pop_id,
      file = "processed_data/aspe_macroecologie_data.rda")
 
