@@ -20,14 +20,31 @@ rm(list = ls())
 # base_repo <- "Z:/dr35_projets/PROJETS/ATLAS_POISSONS/ATLAS_SIG/atlas_piscicole_bretagne_20200220/layers"
 base_repo <- "raw_data/atlas_piscicole_bretagne_20200220/layers"
 bv_file <- "bv_20200132_indicateurs.shp"
+bv_dbf <- "bv_20200132_indicateurs.dbf"
+
 bv_path <- paste(base_repo, bv_file, sep = "/")
+bv_dbf <- paste(base_repo, bv_dbf, sep = "/")
+
+# test <- foreign::read.dbf(bv_dbf, as.is = TRUE) %>% 
+#   mutate(toponyme = ifelse(toponyme == "NR", NA, toponyme))
+# 
+# Encoding(test$toponyme) <- c("UTF-8")
+
+#test2 <- shp::read_dbf(bv_path, col_spec = "?")
+
+
+
+
 
 # comme il y avait pb d'encodage UTF-8 avec st_read(), utilisation de rgdal::readOGR() puis st_as_sf()
 # c'est sans doute améliorable
 bassins <- rgdal::readOGR(bv_path,
-                         # use_iconv = TRUE,
-                         # encoding = "UTF-8"
+                         use_iconv = TRUE,
+                         encoding = "UTF-8"
                          )
+
+
+#stringi::stri_enc_toutf8(bassins@data$toponyme, is_unknown_8bit  = TRUE)[1:50]
 
 bassins@data <-  bassins@data %>%
   dplyr::mutate_if(is.character, iconv, 'UTF-8')
@@ -56,8 +73,8 @@ bassins <- bassins %>%
 #   pull(pb) %>% 
 #   iconv(to = "UTF-8")
 # 
-# bassins3 <- terra::vect(bv_path) %>% 
-#   st_as_sf() %>% 
+# bassins3 <- terra::vect(bv_path) %>%
+#   st_as_sf() %>%
 #   dplyr::mutate_if(is.character, iconv, 'UTF-8')
 # 
 # bassins4 <- sf::read_sf(bv_path, options="ENCODING=UTF-8") 
@@ -139,7 +156,8 @@ aspe_pops_geo <- aspe_pops %>%
   sf::st_join(bassins) %>% 
   filter(!is.na(code_exutoire)) %>% 
   select(pop_id,
-         code_exutoire)
+         code_exutoire,
+         toponyme)
 
 mapview(sample_n(aspe_pops_geo, 1000))
 
@@ -229,7 +247,7 @@ save(aspe_carto_data,
      aspe_ope_captures,
      ref_protocole,
      fichier_aspe,
-     file = 'processed_data/aspe.RData')
+     file = 'processed_data/aspe.rda')
 
 
 # WAMA ----
@@ -269,18 +287,18 @@ fedes_carto_data <- lire_fichier_fedes(chemin = "raw_data/fedes_departementales_
   clean_fede()
 
 
-############ empilement des fichiers et sauvegarde -----
+############ Empilement des fichiers et sauvegarde -----
 
 gdata::keep(wama_carto_data,
             sd_carto_data,
             fedes_carto_data,
             aspe_carto_data,
+            aspe_pops_geo,
             agence_carto_data,
             bassins,
             ref_espece,
             especes_a_supprimer,
             sure = T)
-
 
 
 carto_data <- bind_rows(wama_carto_data,
