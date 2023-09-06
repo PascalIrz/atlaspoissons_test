@@ -20,7 +20,7 @@ knitr::opts_chunk$set(echo = TRUE, message=F, warning = F)
 library(MASS) # keep MASS first yo avoid synonymous function conflict with dplyr
 library(tidyverse)
 #library(sf)
-#library(vegan)
+library(vegan)
 library(corrplot)
 library(factoextra)
 library(FactoMineR)
@@ -36,8 +36,8 @@ source(file = "../R/lm_indices_env.R")
 #load(file = "../processed_data/data2.rda")
 # load(file = '../processed_data/aspe.RData')
 # load(file = "../processed_data/especes_a_supprimer.rda")
-# load(file = "../processed_data/aspe_macroecologie_data.rda")
 load(file = "../processed_data/carto_data2.rda")
+load(file = "../processed_data/bv_abondance_large.rda")
 ```
 
 # Cartographie des richesses par bassin
@@ -337,10 +337,68 @@ Le coefficient de détermination ajusté du modèle est de `r test[2, 6]`. La ri
 
 # Problématique de l'échantillonnage
 
-```{r}
+## Estimation de la richesse absolue par bassin
 
+On utilise l'exemple fourni sur 
+https://search.r-project.org/CRAN/refmans/vegan/html/specpool.html
+
+```{r}
+bv_richesse_absolue <- specpool(x = bv_abondance_large %>% select(-pop_id,
+                                                                  -ope_id,
+                                                                  -pro_libelle,
+                                                                  -code_exutoire),
+                                pool = bv_abondance_large$code_exutoire)
 ```
 
+Un peu de nettoyage / renommage.
 
+```{r}
+bv_richesse_absolue <- bv_richesse_absolue %>% 
+  rownames_to_column("code_exutoire") %>% 
+    select(-ends_with(".se")) %>% 
+  rename(richesse_observee = Species,
+         n_pop = n) %>% 
+  filter(!is.na(richesse_observee))
+```
 
+Suppression des valeurs aberrantes des indicateurs de richesse absolue (inférieures à la richesse observée - cas très rare). 
 
+```{r}
+bv_richesse_absolue <- bv_richesse_absolue %>% 
+  mutate_at(vars(chao:boot),
+            function(x) ifelse(x < bv_richesse_absolue$richesse_observee, NA, x))
+```
+
+Calcul d'un indicateur "moyen" `richesse_absolue_moy_estimateurs`.
+
+```{r}
+bv_richesse_absolue <- bv_richesse_absolue %>% 
+  mutate(richesse_absolue_moy_estimateurs = rowMeans(bv_richesse_absolue %>% 
+                                                       select(chao:boot),
+                                                     na.rm = T)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  select(code_exutoire,
+         n_pop,
+         rich_obs = richesse_observee,
+         rich_abs_moy = richesse_absolue_moy_estimateurs,
+         everything())
+
+DT::datatable(bv_richesse_absolue)
+
+GGally::ggpairs(bv_richesse_absolue %>% 
+                  select(-code_exutoire, -n_pop))
+
+ggplot(data = bv_richesse_absolue,
+       aes(x = rich_obs,
+           y = rich_abs_moy)) +
+  geom_point() +
+  #geom_smooth(method = "lm") +
+  geom_abline(slope = 1, intercept = 0, col = "red")
+```
+
+# Sauvegarde des résultats
+
+```{r}
+save(bv_richesse_absolue,
+     file = "../processed_data/bv_richesse_absolue.rda")
+```

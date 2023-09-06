@@ -5,8 +5,8 @@ library(tidyverse)
 
 rm(list=ls())
 
-load(file = 'processed_data/aspe.RData')
-load(file = "processed_data/especes_a_supprimer.rda")
+load(file = 'processed_data/aspe.rda')
+#load(file = "processed_data/especes_a_supprimer.rda")
 load(file = fichier_aspe)
 
 # Calcul des indicateurs de diversité par opération ----
@@ -14,13 +14,14 @@ load(file = fichier_aspe)
 ## Sélection des données ----
 # Seuls les inventaires de la base Aspe sont pris en compte. 
 # effectif par espèce par operation
+# la truite de mer est recodée en truite fario
 ope_effectif <- aspe_ope_captures %>%
   filter(str_detect(pro_libelle, pattern = "partielle|ambiances|complète"),
          effectif > 0) %>%
+  mutate(code_espece = ifelse(code_espece == "TRM", "TRF", code_espece)) %>% 
   group_by(ope_id,
            code_espece,
            pro_libelle) %>%
-  # filter(date_peche == max(date_peche)) %>%
   group_by(across(-effectif)) %>%
   summarise(effectif = sum(effectif)) %>%
   ungroup()
@@ -109,5 +110,8 @@ save(pop_indices_long,
      ope_indices,
      ope_effectif,
      ope_id_der_peche_par_pop_id,
-     file = "processed_data/aspe_macroecologie_data.rda")
+     aspe_pops_geo,
+     aspe_passerelle,
+     aspe_carto_data,
+     file = "processed_data/aspe_macroecologie.rda")
 

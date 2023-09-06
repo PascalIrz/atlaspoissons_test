@@ -85,8 +85,8 @@ bv_env <- bv_simp_geo %>%
 
 bv_simp_geo <- bv_simp_geo %>% 
   select(code_exutoire,
-       toponyme,
-       geometry) %>% 
+         toponyme,
+         geometry) %>% 
   st_simplify(dTolerance = 50,
               preserveTopology = T)
 
@@ -243,7 +243,8 @@ pt_carto_data <- pt_carto_data %>%
            crs = 4326,
            remove = FALSE) %>% 
   sf::st_join(bassins %>% 
-                select(code_exutoire)) %>% # au cas où il resterait des stations hors des bassins
+                select(code_exutoire,
+                       toponyme)) %>% # au cas où il resterait des stations hors des bassins
   filter(!is.na(code_exutoire),
          annee >= premiere_annee) %>% 
   sf::st_drop_geometry()
@@ -278,16 +279,14 @@ bv_effort_prospection <- pt_carto_data %>%
             n_pops = n_distinct(code_coords),
             n_inventaires = n_distinct(code_coords[inventaire]))
   
-
-
-
-save(pt_carto_data,
-     pt_carto_geo,
+save(pt_carto_geo,
      bv_faune,
      bv_effort_prospection,
      bv_env,
      bv_simp_geo,
      passerelle_taxo,
-     #file = "../../atlas_poissons_app/atlas/donnees_appli.RData"
      file = "processed_data/carto_data2.rda")
+
+save(pt_carto_data,
+     file = "processed_data/pt_carto_data.rda")
 

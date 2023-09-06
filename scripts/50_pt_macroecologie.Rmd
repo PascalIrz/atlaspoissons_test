@@ -34,12 +34,9 @@ source(file = "../R/mon_accum.R")
 
 
 ```{r}
-#load(file = "../processed_data/data2.rda")
-load(file = '../processed_data/aspe.RData')
-load(file = "../processed_data/especes_a_supprimer.rda")
-load(file = "../processed_data/aspe_macroecologie_data.rda")
+load(file = "../processed_data/pt_carto_data.rda")
+load(file = "../processed_data/aspe_macroecologie.rda")
 ```
-
 
 # Indices de biodiversité
 
@@ -50,7 +47,7 @@ Dans cette partie, seules les données d'inventaires de la base Aspe sont conser
 NB Pielou n'est pas calculé sur les points monospécifiques car il a au dénominateur le log de la richesse.
 
 ```{r}
-pt_indices_long %>% 
+pop_indices_long %>% 
   mutate(name = fct_relevel(name, "richesse", "shannon", "simpson")) %>% 
   ggplot(aes(x = value)) + 
   geom_histogram(fill = "darkgreen",
@@ -70,7 +67,7 @@ pt_indices_long %>%
 ```{r, fig.width = 5, fig.height = 12}
 test <- aspe_pops_geo %>%
  # rename(code_point = pop_id) %>% 
-  right_join(pt_indices_long) #%>% 
+  right_join(pop_indices_long) #%>% 
             #   mutate(code_point = as.integer(code_point)))
 
 pal <- wesanderson::wes_palette("Zissou1", 100, type = "continuous")
@@ -101,7 +98,7 @@ g2
 
 ```{r}
 library("PerformanceAnalytics")
-chart.Correlation(pt_indices %>% select(altitude:y_wgs84),
+chart.Correlation(pop_indices %>% select(altitude:y_wgs84),
                   histogram = TRUE,
                   pch = 19)
 ```
@@ -109,11 +106,11 @@ chart.Correlation(pt_indices %>% select(altitude:y_wgs84),
 Pour se rapprocher de distributions normales, on va log-transformer les variables à part les coordonnées.
 
 ```{r}
-pt_indices <- pt_indices %>%
+pop_indices <- pop_indices %>%
   mutate_at(vars(dist_source:pente, starts_with("temp")), log) %>% 
   mutate(altitude = log(1 + altitude))
 
-chart.Correlation(pt_indices %>% select(altitude:y_wgs84),
+chart.Correlation(pop_indices %>% select(altitude:y_wgs84),
                   histogram = TRUE,
                   pch = 19)
 ```
@@ -123,21 +120,21 @@ Les distributions sont beaucoup plus satisfaisantes. Les variables `dist_source`
 ## Construction de l'indice de taille du cours d'eau
 
 ```{r}
-taille <- FactoMineR::PCA(pt_indices %>% select(dist_source, surf_bv, largeur))
+taille <- FactoMineR::PCA(pop_indices %>% select(dist_source, surf_bv, largeur))
 taille <- taille$ind$coord[,1]
 ```
 
 Ajout de la variable `taille` au dataframe.
 
 ```{r}
-pt_indices <- pt_indices %>% 
+pop_indices <- pop_indices %>% 
   cbind(taille)
 ```
 
 Vérification.
 
 ```{r}
-cor(pt_indices %>% select(taille, dist_source, surf_bv, largeur))
+cor(pop_indices %>% select(taille, dist_source, surf_bv, largeur))
 ```
 
 # Modélisation
@@ -156,7 +153,7 @@ mod <- lm(richesse ~ altitude +
             temp_07 +
             x_wgs84 +
             y_wgs84,
-          data = pt_indices)
+          data = pop_indices)
 
 summary(mod)
 ```
@@ -193,7 +190,7 @@ Sans aller autant dans le détail que pour la richesse spécifique on peut repro
 
 ```{r}
 lm_indices_env(
-  df = pt_indices,
+  df = pop_indices,
   variables_dependantes = c("richesse",
                             "shannon",
                             "simpson",
@@ -204,7 +201,7 @@ lm_indices_env(
                              "temp_07",
                              "x_wgs84",
                              "y_wgs84"),
-  step = FALSE # ne peut être TRUR que si tous les modèles simplifiés par stepAIC retiennent les mêmes variables
+  step = FALSE # ne peut être TRUE que si tous les modèles simplifiés par stepAIC retiennent les mêmes variables
 ) %>%
   rownames_to_column("Variable explicative") %>%
   flextable::flextable() %>%
@@ -219,7 +216,7 @@ lm_indices_env(
 On utilise l'exemple fourni sur 
 https://search.r-project.org/CRAN/refmans/vegan/html/specpool.html
 
-Construction, d'une part, du tableau faunistique et, d'autre part, du vecteur indiquant à quel bassin appartient chaque point.
+On reprend toutes les opérations pour chaque point.
 
 ```{r}
 ope_abondance_large <- ope_effectif %>% 
@@ -231,17 +228,20 @@ ope_abondance_large <- ope_effectif %>%
                      pop_id) %>% 
               unique())
 
-pops <- ope_abondance_large %>% 
-  select(pop_id)
+# parenthèse en vue de l'analyse par BV
+bv_abondance_large <- ope_abondance_large %>% 
+  filter(ope_id %in% ope_id_der_peche_par_pop_id) %>% 
+  left_join(y = pop_indices %>% 
+                  select(pop_id, code_exutoire) %>% 
+                  unique())
 
+# mise en forme
 ope_abondance_large <- ope_abondance_large %>% 
     select(-ope_id, -pro_libelle)
 
-pop_richesse_absolue <- with(pops, specpool(ope_abondance_large, pop_id))
-
-
-
-
+# calcul de la richesse et mise au propre
+pop_richesse_absolue <- specpool(x = ope_abondance_large %>% select(-pop_id),
+                                 pool = ope_abondance_large$pop_id)
 
 pop_richesse_absolue <- pop_richesse_absolue %>% 
   rownames_to_column("pop_id") %>% 
@@ -252,12 +252,25 @@ pop_richesse_absolue <- pop_richesse_absolue %>%
  #   rownames_to_column(var = "site") %>% 
     mutate(richesse_absolue_moy_estimateurs = (chao + jack1 + jack2 + boot) / 4) %>% 
     mutate_all(round, 2) %>% 
-    left_join(y = aspe_carto_data %>% 
+    left_join(y = pt_carto_data %>% 
                   select(pop_id = code_point,
-                         localisation) %>%
+                         localisation,
+                         code_exutoire,
+                         bassin = toponyme
+                         ) %>%
                   distinct()) %>% 
+    # left_join(y = aspe_carto_data %>% 
+    #               select(pop_id = code_point,
+    #                      localisation#,
+    #                      #code_exutoire
+    #                      ) %>%
+    #               distinct()) %>% 
+    # left_join(y = pop_indices %>% 
+    #             select(pop_id, code_exutoire)) %>% 
   select(pop_id,
          localisation,
+         code_exutoire,
+         bassin,
          n_ope,
          richesse_observee,
          richesse_absolue_moy_estimateurs,
@@ -268,13 +281,13 @@ DT::datatable(pop_richesse_absolue)
 
 ## Courbes d'accumulation / appauvrissement
 
-```{r}
+```{r, fig.height = 8, fig.width = 8}
 accum <- mon_accum (df = ope_abondance_large,
                     var_site_id = pop_id)
 
 points_assez_de_peches <- ope_abondance_large %>% 
   count(pop_id) %>% 
-  filter(n > 10) %>% 
+  filter(n > 20) %>% 
   pull(pop_id)
 
 
@@ -282,15 +295,39 @@ ggplot(data = accum %>% filter(pop_id %in% points_assez_de_peches),
        aes(x = n_opes,
            y = pt_richesse)) +
   geom_line() +
-  facet_wrap(~pop_id)
-  
-
-ope_abondance_large %>% 
-  filter(pop_id == 31518) %>% 
-  select_if(colSums(.) != 0) %>% View
+  facet_wrap(~pop_id) +
+  labs(x = "Nombre de pêches")
 ```
 
 
+```{r, fig.height = 8, fig.width = 8}
+accum %>%
+  filter(pop_id %in% points_assez_de_peches) %>% 
+  left_join(y = pt_carto_data %>% 
+              select(pop_id = code_point,
+                     localisation) %>% 
+              distinct()) %>% 
+              mutate(localisation = as.character(localisation),
+                     localisation = ifelse(is.na(localisation), "Inconnu", localisation),
+                     localisation = paste0(pop_id, " (", localisation, ")")) %>%
+ggplot(aes(x = n_opes,
+           y = pt_richesse,
+           col = localisation)) +
+  geom_line() +
+  labs(x = "Nombre de pêches",
+       col = "") +
+  theme(legend.position = "bottom")
+```
+
+
+# Sauvegarde des résultats
+
+```{r}
+save(bv_abondance_large,
+     file = "../processed_data/bv_abondance_large.rda")
+save(pop_richesse_absolue,
+     file = "../processed_data/pop_richesse_absolue.rda")
+```
 
 
 
