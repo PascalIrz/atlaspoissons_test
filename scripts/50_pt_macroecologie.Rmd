@@ -206,7 +206,10 @@ lm_indices_env(
   rownames_to_column("Variable explicative") %>%
   flextable::flextable() %>%
   flextable::set_table_properties(layout = "autofit", width = .9) %>%
-  flextable::theme_zebra()
+  flextable::theme_zebra() %>% 
+  flextable::hline(i = c(1, 7)) %>% 
+  flextable::italic(i = 8) %>% 
+  flextable::bold(i = 8)
 ```
 
 # Problématique de l'échantillonnage
@@ -233,7 +236,11 @@ bv_abondance_large <- ope_abondance_large %>%
   filter(ope_id %in% ope_id_der_peche_par_pop_id) %>% 
   left_join(y = pop_indices %>% 
                   select(pop_id, code_exutoire) %>% 
-                  unique())
+                  unique()) %>% 
+  left_join(y = aspe_pops_geo %>%
+              sf::st_drop_geometry() %>% 
+              select(code_exutoire,
+                     toponyme))
 
 # mise en forme
 ope_abondance_large <- ope_abondance_large %>% 
@@ -259,14 +266,6 @@ pop_richesse_absolue <- pop_richesse_absolue %>%
                          bassin = toponyme
                          ) %>%
                   distinct()) %>% 
-    # left_join(y = aspe_carto_data %>% 
-    #               select(pop_id = code_point,
-    #                      localisation#,
-    #                      #code_exutoire
-    #                      ) %>%
-    #               distinct()) %>% 
-    # left_join(y = pop_indices %>% 
-    #             select(pop_id, code_exutoire)) %>% 
   select(pop_id,
          localisation,
          code_exutoire,
@@ -281,13 +280,15 @@ DT::datatable(pop_richesse_absolue)
 
 ## Courbes d'accumulation / appauvrissement
 
+Calculées pour les sites avec mini 30 pêches
+
 ```{r, fig.height = 8, fig.width = 8}
 accum <- mon_accum (df = ope_abondance_large,
                     var_site_id = pop_id)
 
 points_assez_de_peches <- ope_abondance_large %>% 
   count(pop_id) %>% 
-  filter(n > 20) %>% 
+  filter(n > 30) %>% 
   pull(pop_id)
 
 

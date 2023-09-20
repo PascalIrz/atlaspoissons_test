@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, message=F, warning = F)
 # Chargement des packages et des données
 
 ```{r}
-library(MASS) # keep MASS first yo avoid synonymous function conflict with dplyr
+#library(MASS) # keep MASS first yo avoid synonymous function conflict with dplyr
 library(tidyverse)
 #library(sf)
 library(vegan)
@@ -50,7 +50,7 @@ bv_richesse <- bv_faune %>%
 
 map_data <- bv_simp_geo %>% 
   right_join(bv_richesse) %>% 
-  select(code_exutoire,
+  dplyr::select(code_exutoire,
          toponyme,
          rsr)
 
@@ -346,15 +346,16 @@ https://search.r-project.org/CRAN/refmans/vegan/html/specpool.html
 bv_richesse_absolue <- specpool(x = bv_abondance_large %>% select(-pop_id,
                                                                   -ope_id,
                                                                   -pro_libelle,
-                                                                  -code_exutoire),
-                                pool = bv_abondance_large$code_exutoire)
+                                                                  -code_exutoire,
+                                                                  -toponyme),
+                                pool = bv_abondance_large$toponyme)
 ```
 
 Un peu de nettoyage / renommage.
 
 ```{r}
 bv_richesse_absolue <- bv_richesse_absolue %>% 
-  rownames_to_column("code_exutoire") %>% 
+  rownames_to_column("toponyme") %>% 
     select(-ends_with(".se")) %>% 
   rename(richesse_observee = Species,
          n_pop = n) %>% 

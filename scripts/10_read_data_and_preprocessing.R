@@ -44,8 +44,6 @@ bassins <- rgdal::readOGR(bv_path,
                          )
 
 
-#stringi::stri_enc_toutf8(bassins@data$toponyme, is_unknown_8bit  = TRUE)[1:50]
-
 bassins@data <-  bassins@data %>%
   dplyr::mutate_if(is.character, iconv, 'UTF-8')
 
