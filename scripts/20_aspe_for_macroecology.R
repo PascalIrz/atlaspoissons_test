@@ -39,7 +39,7 @@ ope_effectif_matrice <- ope_effectif %>%
   column_to_rownames(var = "ope_id")
 
 # Calcul des indices par opération
-## Calcul des indices
+## Calcul des indices sur les effectifs
 ope_indices <- ope_effectif_matrice %>%
   transmute(
     richesse = specnumber(.),
